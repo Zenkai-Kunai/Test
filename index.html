@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <style>
+    body { background-color: #131722; color: #d1d4dc; font-family: sans-serif; margin: 0; padding: 20px; }
+    #chart-container { width: 100%; height: 500px; position: relative; }
+    .controls { margin-bottom: 10px; display: flex; gap: 10px; }
+    textarea { width: 100%; height: 60px; background: #1e222d; color: #00bcd4; border: 1px solid #363c4e; border-radius: 4px; padding: 8px; font-family: monospace; }
+    button { background: #2962ff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+  </style>
+  <!-- Load TradingView's official canvas library -->
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+
+  <h2>Custom TradingView Clone</h2>
+  
+  <div class="controls">
+    <!-- Simple Indicator Script Input -->
+    <textarea id="indicator-code">SMA(period=5, color=yellow)</textarea>
+    <button onclick="runIndicator()">Apply Script</button>
+  </div>
+
+  <div id="chart-container"></div>
+
+  <script>
+    // 1. Initialize Chart Engine
+    const container = document.getElementById('chart-container');
+    const chart = LightweightCharts.createChart(container, {
+      layout: { backgroundColor: '#131722', textColor: '#d1d4dc' },
+      grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } }
+    });
+
+    // 2. Add Candlestick Series
+    const candleSeries = chart.addCandlestickSeries();
+    const priceData = [
+      { time: '2026-08-10', open: 100, high: 105, low: 98, close: 103 },
+      { time: '2026-08-11', open: 103, high: 107, low: 102, close: 106 },
+      { time: '2026-08-12', open: 106, high: 108, low: 101, close: 102 },
+      { time: '2026-08-13', open: 102, high: 110, low: 102, close: 109 },
+      { time: '2026-08-14', open: 109, high: 112, low: 107, close: 111 },
+      { time: '2026-08-15', open: 111, high: 115, low: 110, close: 114 },
+    ];
+    candleSeries.setData(priceData);
+
+    // 3. Add Line Series for the Custom Indicator
+    let smaLineSeries = chart.addLineSeries({ color: '#ffeb3b', lineWidth: 2 });
+
+    // 4. Custom Indicator Parsing Engine (Vanilla JS)
+    function runIndicator() {
+      const scriptText = document.getElementById('indicator-code').value;
+      
+      // Parse period out of "SMA(period=X)"
+      const periodMatch = scriptText.match(/period=(\d+)/);
+      const period = periodMatch ? parseInt(periodMatch[1]) : 3;
+
+      // Calculate Simple Moving Average algorithmically
+      const smaData = [];
+      for (let i = 0; i < priceData.length; i++) {
+        if (i < period - 1) continue; // Not enough history yet
+        
+        let sum = 0;
+        for (let j = 0; j < period; j++) {
+          sum += priceData[i - j].close;
+        }
+        smaData.push({ time: priceData[i].time, value: sum / period });
+      }
+
+      // Render indicator line over candles
+      smaLineSeries.setData(smaData);
+    }
+
+    runIndicator(); // Initial run
+  </script>
+</body>
+</html>
