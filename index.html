@@ -1,21 +1,75 @@
-// Example: Connect to a live real-time WebSocket feed for XAUUSD
-const ws = new WebSocket('wss://ws.twelvedata.com/v1/quotes/price?apikey=YOUR_API_KEY');
-
-ws.onopen = () => {
-  // Subscribe to real-time Gold (XAU/USD) ticks
-  ws.send(JSON.stringify({
-    "action": "subscribe",
-    "params": {
-      "symbols": "XAU/USD"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>XAUUSD Live Trading Terminal</title>
+  <style>
+    :root {
+      --bg-color: #131722;
     }
-  }));
-};
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: var(--bg-color);
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+    /* Container for the real-time TradingView widget */
+    .tradingview-widget-container {
+      height: 100%;
+      width: 100%;
+    }
+    #tradingview_xauusd {
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
 
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  if (data.event === 'price') {
-    const liveGoldPrice = data.price;
-    // Update live candle array with true real-time price
-    updateCandleData(liveGoldPrice); 
-  }
-};
+  <!-- Live TradingView Container -->
+  <div class="tradingview-widget-container">
+    <div id="tradingview_xauusd"></div>
+  </div>
+
+  <!-- Real-Time TradingView Widget Engine Script -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <script type="text/javascript">
+    new TradingView.widget({
+      "autosize": true,
+      "symbol": "OANDA:XAUUSD", // Real live Gold Spot vs US Dollar
+      "interval": "1",          // Default to M1 (1-minute timeframe)
+      "timezone": "Etc/UTC",
+      "theme": "dark",
+      "style": "1",            // Candlestick view
+      "locale": "en",
+      "toolbar_bg": "#f1f3f6",
+      "enable_publishing": false,
+      "allow_symbol_change": true, // Allows changing pairs if needed
+      "save_image": false,
+      "container_id": "tradingview_xauusd",
+      
+      // Included timeframes: M1 up to 12M
+      "timeframe_options": [
+        "1",   /* M1 */
+        "5",   /* M5 */
+        "15",  /* M15 */
+        "30",  /* M30 */
+        "60",  /* H1 */
+        "240", /* H4 */
+        "D",   /* 1D */
+        "W",   /* 1W */
+        "M",   /* 1M */
+        "12M"  /* 12M */
+      ],
+      "studies": [
+        "STD;SMA" // Preloaded Simple Moving Average indicator
+      ]
+    });
+  </script>
+</body>
+</html>
