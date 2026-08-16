@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Circuit Topology Generator</title>
+    <title>Advanced Circuit Topology Visualizer</title>
     <style>
-        /* Vanilla CSS */
         :root {
             --primary: #2563eb;
             --bg: #f8fafc;
@@ -16,216 +15,276 @@
         body {
             font-family: system-ui, -apple-system, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background: var(--bg);
             color: var(--text);
             display: flex;
             flex-direction: column;
             height: 100vh;
-            box-sizing: border-box;
+            overflow: hidden; /* Prevent body scrolling */
         }
         .header {
-            margin-bottom: 20px;
+            padding: 15px 20px 5px 20px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
+        .header h2 { margin: 0 0 10px 0; font-size: 1.2rem; }
         .controls {
             display: flex;
             gap: 10px;
-            margin-bottom: 20px;
-            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
         }
         input[type="file"] {
-            padding: 10px;
+            padding: 8px;
             border: 1px dashed var(--border);
             border-radius: 6px;
-            background: var(--surface);
+            background: var(--bg);
             cursor: pointer;
-            flex-grow: 1;
             font-family: monospace;
+            max-width: 250px;
         }
         button {
             background: var(--primary);
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 16px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            transition: opacity 0.2s;
-            height: 100%;
+            transition: background 0.2s;
         }
-        button:hover {
-            opacity: 0.9;
-        }
+        button:hover { background: #1d4ed8; }
+        .instructions { font-size: 0.85rem; color: #64748b; margin: 0; }
+        
         #canvas-container {
             flex-grow: 1;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            overflow: hidden;
+            background: #e2e8f0;
             position: relative;
+            cursor: grab;
+            overflow: hidden; /* Hide SVG overflow */
         }
+        #canvas-container:active { cursor: grabbing; }
+        
         svg {
             width: 100%;
             height: 100%;
+            display: block;
         }
-        .node-component { fill: #ef4444; }
-        .node-net { fill: #3b82f6; }
-        .link { stroke: #cbd5e1; stroke-width: 1.5px; }
-        .label { font-size: 10px; fill: #0f172a; pointer-events: none; }
         
-        /* Print Styles to ensure clean PDF export */
-        @media print {
-            body { padding: 0; background: white; }
-            .no-print { display: none !important; }
-            #canvas-container { border: none; height: 100vh; width: 100vw; }
-            svg { width: 100%; height: 100%; }
+        /* SVG Styling */
+        .link { stroke: #94a3b8; stroke-width: 1px; fill: none; }
+        .label { font-size: 12px; fill: #0f172a; pointer-events: none; text-anchor: middle; font-family: monospace;}
+        .net-node { fill: #3b82f6; stroke: #fff; stroke-width: 1px; }
+        
+        /* Component Symbols Styling */
+        .sym-stroke { stroke: #ef4444; stroke-width: 2px; fill: none; stroke-linecap: round; stroke-linejoin: round;}
+        .sym-fill { fill: #ef4444; }
+        .ic-box { fill: #f8fafc; stroke: #334155; stroke-width: 2px; }
+        
+        #loading {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            display: none;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div class="header no-print">
-        <h2>Auto Circuit Topology Visualizer</h2>
-        <p>Upload your Agilent 3070 board file below. The parser looks for the <strong>CONNECTIONS</strong> block to build the network.</p>
-    </div>
-
-    <div class="controls no-print">
-        <input type="file" id="fileInput" accept=".txt,.board,*/*" />
-        <button onclick="generateDiagram()">Generate Diagram</button>
-        <button onclick="window.print()" style="background: #10b981;">Download Searchable PDF</button>
+    <div class="header">
+        <h2>Advanced Circuit Visualizer</h2>
+        <div class="controls">
+            <input type="file" id="fileInput" accept=".txt,.board,*/*" />
+            <button onclick="generateDiagram()">1. Process & Layout</button>
+            <button onclick="resetView()" style="background: #475569;">Reset View</button>
+        </div>
+        <p class="instructions">Scroll/Pinch to Zoom. Click/Touch and Drag to Pan.</p>
     </div>
 
     <div id="canvas-container">
-        <svg id="circuitSvg"></svg>
+        <svg id="circuitSvg">
+            <!-- Define reusable symbols -->
+            <defs>
+                <!-- Resistor Zigzag -->
+                <g id="sym-R" transform="translate(-15, -5)">
+                    <path d="M 0,5 L 5,5 L 8,0 L 14,10 L 20,0 L 26,10 L 29,5 L 30,5" class="sym-stroke"/>
+                </g>
+                <!-- Capacitor Parallel Lines -->
+                <g id="sym-C" transform="translate(-10, -10)">
+                    <line x1="0" y1="10" x2="8" y2="10" class="sym-stroke" />
+                    <line x1="8" y1="0" x2="8" y2="20" class="sym-stroke" />
+                    <line x1="12" y1="0" x2="12" y2="20" class="sym-stroke" />
+                    <line x1="12" y1="10" x2="20" y2="10" class="sym-stroke" />
+                </g>
+                <!-- Inductor Bumps -->
+                <g id="sym-L" transform="translate(-15, -5)">
+                    <path d="M 0,5 L 5,5 Q 8.5,-5 12,5 Q 15.5,-5 19,5 Q 22.5,-5 26,5 L 30,5" class="sym-stroke"/>
+                </g>
+                <!-- Diode / LED -->
+                <g id="sym-D" transform="translate(-10, -10)">
+                    <line x1="0" y1="10" x2="20" y2="10" class="sym-stroke" />
+                    <polygon points="5,5 15,10 5,15" class="sym-fill" />
+                    <line x1="15" y1="5" x2="15" y2="15" class="sym-stroke" />
+                </g>
+                <!-- IC / Chip -->
+                <g id="sym-U" transform="translate(-15, -15)">
+                    <rect x="0" y="0" width="30" height="30" rx="3" class="ic-box" />
+                </g>
+                <!-- Connector / Header -->
+                <g id="sym-J" transform="translate(-10, -15)">
+                    <rect x="0" y="0" width="20" height="30" fill="#cbd5e1" stroke="#64748b" stroke-width="2"/>
+                    <circle cx="10" cy="8" r="2" fill="#334155"/>
+                    <circle cx="10" cy="15" r="2" fill="#334155"/>
+                    <circle cx="10" cy="22" r="2" fill="#334155"/>
+                </g>
+            </defs>
+            <!-- Viewport group for panning/zooming -->
+            <g id="viewport" transform="translate(0,0) scale(1)"></g>
+        </svg>
+        <div id="loading">Calculating Layout...</div>
     </div>
 
     <script>
-        // Vanilla JS Physics & Parsing Engine
         let nodes = [];
         let edges = [];
+        
+        // Virtual canvas size for physics (much larger than screen to prevent overlap)
+        const VIRTUAL_WIDTH = 5000;
+        const VIRTUAL_HEIGHT = 5000;
+
+        // Viewport State
+        let currentScale = 1;
+        let currentX = 0;
+        let currentY = 0;
+        let isDragging = false;
+        let startDragX = 0;
+        let startDragY = 0;
+
+        // Determine component type based on string prefix
+        function getComponentType(id) {
+            id = id.toUpperCase();
+            if (id.startsWith('R')) return 'R'; // Resistor
+            if (id.startsWith('C')) return 'C'; // Capacitor
+            if (id.startsWith('L') || id.startsWith('E')) return 'L'; // Inductor/Ferrite Bead
+            if (id.startsWith('D') || id.startsWith('DS')) return 'D'; // Diode/LED
+            if (id.startsWith('U') || id.startsWith('Y')) return 'U'; // IC/Crystal
+            if (id.startsWith('J') || id.startsWith('TN')) return 'J'; // Connector/Test Node
+            return 'UNK'; // Unknown/Generic
+        }
 
         function parseBoardFile(text) {
             nodes = [];
             edges = [];
             const nodeMap = new Map();
 
-            function addNode(id, type) {
+            function addNode(id, isNet) {
                 if (!nodeMap.has(id)) {
-                    const node = { id, type, x: Math.random() * 800, y: Math.random() * 600, vx: 0, vy: 0 };
+                    // Start them randomly but clustered near the center to pull together
+                    const node = { 
+                        id: id, 
+                        isNet: isNet,
+                        compType: isNet ? 'NET' : getComponentType(id),
+                        x: (VIRTUAL_WIDTH/2) + (Math.random() - 0.5) * 1000, 
+                        y: (VIRTUAL_HEIGHT/2) + (Math.random() - 0.5) * 1000, 
+                        vx: 0, vy: 0 
+                    };
                     nodes.push(node);
                     nodeMap.set(id, node);
                 }
                 return nodeMap.get(id);
             }
 
-            // Isolate the CONNECTIONS section
             const connSection = text.split(/CONNECTIONS/i)[1];
             if (!connSection) {
                 alert("Could not find CONNECTIONS section in the file.");
-                return;
+                return false;
             }
             
-            // Extract until the next major section (usually DEVICES or END)
             const connectionsText = connSection.split(/(DEVICES|END)/i)[0];
-            
-            // Parse logic: Nets are un-indented or single-indented, parts are double-indented
             const lines = connectionsText.split('\n');
             let currentNet = null;
 
             lines.forEach(line => {
-                // Remove comments and trim right
                 let cleanLine = line.split('!')[0].trimRight();
                 if (!cleanLine.trim()) return;
 
-                // Detect if it's a net name (starts with minimal whitespace)
                 const leadingSpaces = cleanLine.length - cleanLine.trimLeft().length;
                 
                 if (leadingSpaces < 4 && cleanLine.trim() !== '') {
                     currentNet = cleanLine.trim();
-                    addNode(currentNet, 'net');
+                    addNode(currentNet, true); // It's a net
                 } else if (leadingSpaces >= 4 && currentNet) {
-                    // Extract component name (e.g., C18.2 -> C18)
-                    let componentPart = cleanLine.trim().split('.')[0];
-                    // Clean up semicolons
-                    componentPart = componentPart.replace(';', '');
-                    
+                    let componentPart = cleanLine.trim().split('.')[0].replace(';', '');
                     if (componentPart) {
-                        addNode(componentPart, 'component');
-                        edges.push({
-                            source: currentNet,
-                            target: componentPart
-                        });
+                        addNode(componentPart, false); // It's a component
+                        edges.push({ source: currentNet, target: componentPart });
                     }
                 }
             });
+            return true;
         }
 
         function generateDiagram() {
             const fileInput = document.getElementById('fileInput');
-            
             if (fileInput.files.length === 0) {
                 alert("Please upload a board file first.");
                 return;
             }
 
+            document.getElementById('loading').style.display = 'block';
+
             const file = fileInput.files[0];
             const reader = new FileReader();
 
-            // When the file is successfully read, parse and draw it
             reader.onload = function(e) {
                 const text = e.target.result;
-                parseBoardFile(text);
-                runPhysicsLayout();
-                renderSVG();
+                // Allow UI to update loading screen before locking thread with physics
+                setTimeout(() => {
+                    if (parseBoardFile(text)) {
+                        runPhysicsLayout();
+                        renderSVG();
+                        resetView(); // Center drawing
+                    }
+                    document.getElementById('loading').style.display = 'none';
+                }, 50);
             };
-
-            // Handle errors
-            reader.onerror = function() {
-                alert("There was an error reading the file.");
-            };
-
-            // Read the uploaded file as plain text
             reader.readAsText(file);
         }
 
         function runPhysicsLayout() {
-            // Simple Force-Directed Graph implementation (Fruchterman-Reingold inspired)
-            const iterations = 150;
-            const k = 50; // Optimal distance
-            const width = document.getElementById('canvas-container').clientWidth;
-            const height = document.getElementById('canvas-container').clientHeight;
+            const iterations = 200; // Increased iterations for better untangling
+            const k = 80; // Larger optimal distance to spread things out
 
-            // Pre-map node indices for faster edge lookups
             const nodeDict = {};
             nodes.forEach(n => nodeDict[n.id] = n);
 
-            // Center nodes initially
-            nodes.forEach(n => {
-                n.x = width / 2 + (Math.random() - 0.5) * 200;
-                n.y = height / 2 + (Math.random() - 0.5) * 200;
-            });
-
             for (let iter = 0; iter < iterations; iter++) {
-                // Calculate Repulsive forces
+                // Repulsion
                 for (let i = 0; i < nodes.length; i++) {
                     for (let j = i + 1; j < nodes.length; j++) {
                         let dx = nodes[i].x - nodes[j].x;
                         let dy = nodes[i].y - nodes[j].y;
                         let distSq = dx*dx + dy*dy;
                         if (distSq === 0) distSq = 0.01;
-                        if (distSq < 10000) { 
+                        if (distSq < 40000) { // Only repulse if somewhat close
                             let force = (k * k) / distSq;
-                            let fx = force * dx;
-                            let fy = force * dy;
-                            nodes[i].vx += fx;
-                            nodes[i].vy += fy;
-                            nodes[j].vx -= fx;
-                            nodes[j].vy -= fy;
+                            nodes[i].vx += force * dx;
+                            nodes[i].vy += force * dy;
+                            nodes[j].vx -= force * dx;
+                            nodes[j].vy -= force * dy;
                         }
                     }
                 }
 
-                // Calculate Attractive forces
+                // Attraction
                 edges.forEach(edge => {
                     let source = nodeDict[edge.source];
                     let target = nodeDict[edge.target];
@@ -234,37 +293,27 @@
                     let dy = target.y - source.y;
                     let dist = Math.sqrt(dx*dx + dy*dy);
                     if (dist === 0) dist = 0.01;
+                    
                     let force = (dist * dist) / k;
                     let fx = (force * dx) / dist;
                     let fy = (force * dy) / dist;
                     
-                    // Net nodes are heavier (move less) to create better clustering
-                    let sourceWeight = source.type === 'net' ? 0.2 : 0.8;
-                    let targetWeight = target.type === 'net' ? 0.2 : 0.8;
-
-                    source.vx += fx * sourceWeight;
-                    source.vy += fy * sourceWeight;
-                    target.vx -= fx * targetWeight;
-                    target.vy -= fy * targetWeight;
+                    source.vx += fx;
+                    source.vy += fy;
+                    target.vx -= fx;
+                    target.vy -= fy;
                 });
 
-                // Apply velocity, friction, and bounds
-                const temp = iter / iterations; // Cooling schedule
-                const maxDisplacement = temp * 20 + 1;
-
+                // Apply velocity and cool down
+                const temp = (1 - iter / iterations) * 40; 
                 nodes.forEach(n => {
                     let vDist = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
                     if (vDist > 0) {
-                        let dispX = (n.vx / vDist) * Math.min(vDist, maxDisplacement);
-                        let dispY = (n.vy / vDist) * Math.min(vDist, maxDisplacement);
-                        n.x += dispX;
-                        n.y += dispY;
+                        n.x += (n.vx / vDist) * Math.min(vDist, temp);
+                        n.y += (n.vy / vDist) * Math.min(vDist, temp);
                     }
-                    // Keep within bounds
-                    n.x = Math.max(20, Math.min(width - 20, n.x));
-                    n.y = Math.max(20, Math.min(height - 20, n.y));
-                    
-                    // Reset velocity
+                    n.x = Math.max(50, Math.min(VIRTUAL_WIDTH - 50, n.x));
+                    n.y = Math.max(50, Math.min(VIRTUAL_HEIGHT - 50, n.y));
                     n.vx = 0;
                     n.vy = 0;
                 });
@@ -272,13 +321,13 @@
         }
 
         function renderSVG() {
-            const svg = document.getElementById('circuitSvg');
-            svg.innerHTML = ''; // Clear previous
+            const viewport = document.getElementById('viewport');
+            viewport.innerHTML = '';
 
             const nodeDict = {};
             nodes.forEach(n => nodeDict[n.id] = n);
 
-            // Draw Edges
+            // 1. Draw Wires (Edges) first so they are underneath
             edges.forEach(edge => {
                 let source = nodeDict[edge.source];
                 let target = nodeDict[edge.target];
@@ -289,28 +338,159 @@
                     line.setAttribute('x2', target.x);
                     line.setAttribute('y2', target.y);
                     line.setAttribute('class', 'link');
-                    svg.appendChild(line);
+                    viewport.appendChild(line);
                 }
             });
 
-            // Draw Nodes
+            // 2. Draw Nodes (Symbols/Dots)
             nodes.forEach(n => {
-                let circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', n.x);
-                circle.setAttribute('cy', n.y);
-                circle.setAttribute('r', n.type === 'net' ? 6 : 4);
-                circle.setAttribute('class', n.type === 'net' ? 'node-net' : 'node-component');
-                svg.appendChild(circle);
+                if (n.isNet) {
+                    // Draw small blue dot for nets
+                    let circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', n.x);
+                    circle.setAttribute('cy', n.y);
+                    circle.setAttribute('r', 6);
+                    circle.setAttribute('class', 'net-node');
+                    viewport.appendChild(circle);
+                } else {
+                    // Draw specific symbol
+                    let use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                    let symId = '#sym-UNK'; // Fallback
+                    if (n.compType !== 'UNK') {
+                        symId = '#sym-' + n.compType;
+                    } else {
+                        // Fallback generic box
+                        symId = '#sym-U';
+                    }
+                    use.setAttribute('href', symId);
+                    use.setAttribute('x', n.x);
+                    use.setAttribute('y', n.y);
+                    viewport.appendChild(use);
+                }
 
-                // Draw Text (Searchable in PDF)
+                // 3. Draw Label
                 let text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                text.setAttribute('x', n.x + 8);
-                text.setAttribute('y', n.y + 3);
+                text.setAttribute('x', n.x);
+                // Offset text below the symbol
+                text.setAttribute('y', n.y + (n.compType === 'U' || n.compType === 'J' ? 25 : 18));
                 text.setAttribute('class', 'label');
                 text.textContent = n.id;
-                svg.appendChild(text);
+                viewport.appendChild(text);
             });
         }
+
+        // --- PAN AND ZOOM INTERACTIVITY LOGIC ---
+        
+        function updateTransform() {
+            const viewport = document.getElementById('viewport');
+            viewport.setAttribute('transform', `translate(${currentX}, ${currentY}) scale(${currentScale})`);
+        }
+
+        function resetView() {
+            const container = document.getElementById('canvas-container');
+            // Auto scale to try and fit the virtual canvas (roughly)
+            currentScale = Math.min(container.clientWidth / 2500, container.clientHeight / 2500);
+            if(currentScale < 0.1) currentScale = 0.1;
+            
+            // Center it based on the bounds of the nodes
+            let minX = VIRTUAL_WIDTH, minY = VIRTUAL_HEIGHT, maxX = 0, maxY = 0;
+            nodes.forEach(n => {
+                if(n.x < minX) minX = n.x;
+                if(n.x > maxX) maxX = n.x;
+                if(n.y < minY) minY = n.y;
+                if(n.y > maxY) maxY = n.y;
+            });
+
+            if (nodes.length > 0) {
+                let centerX = (minX + maxX) / 2;
+                let centerY = (minY + maxY) / 2;
+                currentX = (container.clientWidth / 2) - (centerX * currentScale);
+                currentY = (container.clientHeight / 2) - (centerY * currentScale);
+            } else {
+                currentX = 0; currentY = 0; currentScale = 1;
+            }
+            updateTransform();
+        }
+
+        const container = document.getElementById('canvas-container');
+
+        // Mouse Events
+        container.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startDragX = e.clientX - currentX;
+            startDragY = e.clientY - currentY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            currentX = e.clientX - startDragX;
+            currentY = e.clientY - startDragY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => isDragging = false);
+
+        // Wheel (Scroll to Zoom)
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomSensitivity = 0.001;
+            const delta = -e.deltaY * zoomSensitivity;
+            const newScale = Math.max(0.05, Math.min(5, currentScale + delta));
+            
+            // Zoom toward mouse pointer
+            const rect = container.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            currentX = mouseX - (mouseX - currentX) * (newScale / currentScale);
+            currentY = mouseY - (mouseY - currentY) * (newScale / currentScale);
+            currentScale = newScale;
+            
+            updateTransform();
+        });
+
+        // Touch Events (Mobile Support)
+        let initialPinchDistance = null;
+        let initialScale = 1;
+
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                startDragX = e.touches[0].clientX - currentX;
+                startDragY = e.touches[0].clientY - currentY;
+            } else if (e.touches.length === 2) {
+                isDragging = false;
+                initialPinchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                initialScale = currentScale;
+            }
+        }, {passive: false});
+
+        container.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Stop screen scrolling
+            if (isDragging && e.touches.length === 1) {
+                currentX = e.touches[0].clientX - startDragX;
+                currentY = e.touches[0].clientY - startDragY;
+                updateTransform();
+            } else if (e.touches.length === 2 && initialPinchDistance) {
+                const currentPinchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const scaleFactor = currentPinchDistance / initialPinchDistance;
+                currentScale = Math.max(0.05, Math.min(5, initialScale * scaleFactor));
+                // Center pinch zooming isn't fully calculated here for brevity, pivots from origin
+                updateTransform();
+            }
+        }, {passive: false});
+
+        container.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) initialPinchDistance = null;
+            if (e.touches.length === 0) isDragging = false;
+        });
+
     </script>
 </body>
 </html>
