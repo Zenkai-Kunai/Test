@@ -61,7 +61,7 @@
     /* MAIN LAYOUT */
     #main-layout { display: flex; flex: 1; position: relative; overflow: hidden; flex-direction: row; }
 
-    /* LEFT TOOLBAR (SCROLLABLE ON MOBILE) */
+    /* LEFT TOOLBAR */
     #left-toolbar { width: 48px; background: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; padding: 6px 0; gap: 6px; z-index: 5; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; shrink: 0; }
     .tool-btn { width: 38px; height: 38px; min-height: 38px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: transparent; border: none; fill: var(--text-muted); position: relative; shrink: 0; }
     .tool-btn:hover, .tool-btn:active { background: var(--bg-hover); fill: var(--text-main); }
@@ -73,11 +73,11 @@
     #viewport-container { flex: 1; position: relative; background: radial-gradient(circle at center, #262936 0%, #111217 100%); touch-action: none; }
     #canvas3d { width: 100%; height: 100%; display: block; touch-action: none; }
     
-    /* NAV CUBE & VIEWPORT CONTROLS */
+    /* NAV OVERLAY CONTROLS */
     .viewport-overlay-controls { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; z-index: 4; flex-wrap: wrap; max-width: calc(100% - 16px); }
     .viewport-overlay-controls .btn { padding: 4px 8px; min-height: 28px; font-size: 10px; background: rgba(34, 37, 48, 0.85); backdrop-filter: blur(4px); }
 
-    /* RIGHT PROPERTIES PANEL (SLIDE IN ON MOBILE) */
+    /* RIGHT PROPERTIES PANEL */
     #right-panel { width: 240px; background: var(--bg-panel); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 5; transition: transform 0.25s ease; }
     .panel-section { border-bottom: 1px solid var(--border-color); }
     .panel-header { padding: 8px 10px; background: var(--bg-dark); font-weight: 600; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 11px; }
@@ -88,7 +88,10 @@
     .tree-item { padding: 6px 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border-radius: 3px; font-size: 11px; }
     .tree-item:hover, .tree-item:active { background: var(--bg-hover); }
     .tree-item.selected { background: rgba(0, 122, 204, 0.3); border-left: 3px solid var(--accent); }
+    .tree-item.locked { opacity: 0.6; }
     .tree-item-icon { margin-right: 6px; opacity: 0.7; }
+    .tree-lock-btn { padding: 2px 4px; cursor: pointer; opacity: 0.8; font-size: 12px; }
+    .tree-lock-btn:hover { opacity: 1; }
 
     /* BOTTOM STATUS BAR */
     #status-bar { height: 24px; background: var(--bg-dark); border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 8px; font-size: 10px; color: var(--text-muted); z-index: 10; shrink: 0; }
@@ -102,7 +105,6 @@
 
     @keyframes slideIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-    /* RESPONSIVE LAYOUT BREAKPOINTS FOR SMARTPHONES */
     @media (min-width: 768px) {
       #top-bar { padding: 0 12px; height: 40px; }
       .logo-container { font-size: 14px; gap: 8px; }
@@ -115,7 +117,7 @@
     }
 
     @media (max-width: 600px) {
-      .menu-bar { display: none; } /* Hide redundant header menu items on narrow mobile phones */
+      .menu-bar { display: none; }
       #right-panel { position: absolute; right: 0; top: 0; bottom: 0; transform: translateX(100%); width: 220px; box-shadow: -5px 0 15px rgba(0,0,0,0.5); }
       #right-panel.open { transform: translateX(0); }
       #toggle-panel-btn { display: inline-flex !important; }
@@ -146,7 +148,6 @@
     <div class="project-title" id="project-title-display">Untitled Project.zencad</div>
 
     <div class="top-actions">
-      <!-- FULLSCREEN TOGGLE BUTTON FOR MOBILE & DESKTOP -->
       <button class="btn btn-icon" id="btn-fullscreen" title="Toggle Fullscreen Mode" onclick="app.toggleFullscreen()">
         <svg id="icon-fullscreen" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
       </button>
@@ -269,7 +270,7 @@
      ========================================================================== -->
 <script>
 /**
- * ZEN CAD - Core Engine Architecture with Mobile & Touch Optimizations
+ * ZEN CAD - Core Engine Architecture
  */
 
 const ZEN = {
@@ -316,7 +317,7 @@ class ViewportManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
 
-    // Orbit Controls with Touch Gesture Optimizations
+    // Orbit Controls with Touch Optimizations
     this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
@@ -360,16 +361,19 @@ class ViewportManager {
     this.scene.add(this.axes);
   }
 
+  updateMouseCoordinates(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  }
+
   bindEvents() {
     const handleResize = () => this.onWindowResize();
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', () => setTimeout(handleResize, 200));
 
     const updateCoords = (clientX, clientY) => {
-      const rect = this.canvas.getBoundingClientRect();
-      this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-      this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-      
+      this.updateMouseCoordinates(clientX, clientY);
       const worldPos = this.getWorldIntersectionPlane();
       if (worldPos) {
         document.getElementById('status-coords').innerText = 
@@ -529,7 +533,8 @@ class GeometryManager {
     this.selectedMaterial = new THREE.MeshStandardMaterial({
       color: 0xff9800,
       roughness: 0.2,
-      metalness: 0.5
+      metalness: 0.5,
+      side: THREE.DoubleSide
     });
   }
 
@@ -539,7 +544,7 @@ class GeometryManager {
     mesh.receiveShadow = true;
     mesh.userData = { id, name, type: 'body' };
 
-    const bodyObj = { id, name, mesh, type: 'body' };
+    const bodyObj = { id, name, mesh, type: 'body', locked: false };
     this.bodies.push(bodyObj);
     this.scene.add(mesh);
     app.uiManager.updateTree();
@@ -720,8 +725,19 @@ class UIManager {
 
     app.geometryManager.bodies.forEach(b => {
       const div = document.createElement('div');
-      div.className = `tree-item ${app.selectedObject === b ? 'selected' : ''}`;
-      div.innerHTML = `<span><span class="tree-item-icon">🧊</span>${b.name}</span>`;
+      div.className = `tree-item ${app.selectedObject === b ? 'selected' : ''} ${b.locked ? 'locked' : ''}`;
+      
+      const lockIcon = b.locked ? '🔒' : '🔓';
+      div.innerHTML = `
+        <span><span class="tree-item-icon">🧊</span>${b.name}</span>
+        <span class="tree-lock-btn" title="${b.locked ? 'Unlock Object' : 'Lock Object'}">${lockIcon}</span>
+      `;
+      
+      div.querySelector('.tree-lock-btn').onclick = (e) => {
+        e.stopPropagation();
+        app.toggleLockEntity(b);
+      };
+
       div.onclick = () => app.selectEntity(b);
       this.treeContainer.appendChild(div);
     });
@@ -735,20 +751,30 @@ class UIManager {
 
     if (obj.type === 'body') {
       const pos = obj.mesh.position;
+      const isLocked = obj.locked;
+      const disabledAttr = isLocked ? 'disabled' : '';
+
       this.propContainer.innerHTML = `
-        <div style="font-weight:600; margin-bottom:8px;">Body Parameters</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-weight:600;">Body Parameters</span>
+          <button class="btn btn-icon" style="min-height:26px; height:26px; width:26px;" onclick="app.toggleLockEntity(app.selectedObject)" title="${isLocked ? 'Unlock Object' : 'Lock Object'}">
+            ${isLocked ? '🔒' : '🔓'}
+          </button>
+        </div>
+        ${isLocked ? '<div style="color: var(--highlight-orange); font-size:10px; margin-bottom:6px;">🔒 Object is Locked (Editing Disabled)</div>' : ''}
+        
         <label>Name</label>
-        <input type="text" value="${obj.name}" onchange="app.selectedObject.name = this.value; app.uiManager.updateTree();">
+        <input type="text" value="${obj.name}" ${disabledAttr} onchange="app.selectedObject.name = this.value; app.uiManager.updateTree();">
         
         <div style="margin-top:10px; font-weight:600;">Position (mm)</div>
         <div style="display:flex; gap:4px; margin-top:4px;">
-          <input type="number" value="${pos.x}" onchange="app.selectedObject.mesh.position.x = parseFloat(this.value)">
-          <input type="number" value="${pos.y}" onchange="app.selectedObject.mesh.position.y = parseFloat(this.value)">
-          <input type="number" value="${pos.z}" onchange="app.selectedObject.mesh.position.z = parseFloat(this.value)">
+          <input type="number" value="${pos.x}" ${disabledAttr} onchange="app.selectedObject.mesh.position.x = parseFloat(this.value)">
+          <input type="number" value="${pos.y}" ${disabledAttr} onchange="app.selectedObject.mesh.position.y = parseFloat(this.value)">
+          <input type="number" value="${pos.z}" ${disabledAttr} onchange="app.selectedObject.mesh.position.z = parseFloat(this.value)">
         </div>
 
         <div style="margin-top:16px;">
-          <button class="btn btn-danger" style="width:100%" onclick="app.geometryManager.removeBody('${obj.id}'); app.selectEntity(null);">Delete Body</button>
+          <button class="btn btn-danger" style="width:100%" ${disabledAttr} onclick="app.geometryManager.removeBody('${obj.id}'); app.selectEntity(null);">Delete Body</button>
         </div>
       `;
     }
@@ -789,7 +815,7 @@ class CADApp {
       const docEl = document.documentElement;
       if (docEl.requestFullscreen) {
         docEl.requestFullscreen();
-      } else if (docEl.webkitRequestFullscreen) { /* Safari & iOS Mobile */
+      } else if (docEl.webkitRequestFullscreen) {
         docEl.webkitRequestFullscreen();
       }
     } else {
@@ -805,10 +831,8 @@ class CADApp {
     const updateIcon = () => {
       const icon = document.getElementById('icon-fullscreen');
       if (document.fullscreenElement || document.webkitFullscreenElement) {
-        // Exit Fullscreen Icon
         icon.innerHTML = '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>';
       } else {
-        // Enter Fullscreen Icon
         icon.innerHTML = '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
       }
       setTimeout(() => this.viewport.onWindowResize(), 150);
@@ -861,19 +885,30 @@ class CADApp {
   setupInteractions() {
     let isDrawing = false;
     let startPt = null;
+    let pointerDownTime = 0;
+    let pointerDownPos = { x: 0, y: 0 };
 
-    const handlePointer = (clientX, clientY) => {
-      const rect = this.viewport.canvas.getBoundingClientRect();
-      this.viewport.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-      this.viewport.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    const canvas = this.viewport.canvas;
 
+    const onPointerDown = (clientX, clientY) => {
+      pointerDownTime = Date.now();
+      pointerDownPos = { x: clientX, y: clientY };
+      this.viewport.updateMouseCoordinates(clientX, clientY);
+    };
+
+    const onPointerUp = (clientX, clientY) => {
+      // Prevent drag/orbit from triggering selection
+      const dist = Math.hypot(clientX - pointerDownPos.x, clientY - pointerDownPos.y);
+      const duration = Date.now() - pointerDownTime;
+      if (dist > 8 || duration > 400) return;
+
+      this.viewport.updateMouseCoordinates(clientX, clientY);
       const worldPos = this.viewport.getWorldIntersectionPlane();
-      if (!worldPos) return;
 
-      const snappedX = CADMath.snap(worldPos.x, ZEN.gridSize);
-      const snappedZ = CADMath.snap(worldPos.z, ZEN.gridSize);
+      if (this.activeSketch && ['rect', 'circle', 'line'].includes(this.activeTool) && worldPos) {
+        const snappedX = CADMath.snap(worldPos.x, ZEN.gridSize);
+        const snappedZ = CADMath.snap(worldPos.z, ZEN.gridSize);
 
-      if (this.activeSketch && ['rect', 'circle', 'line'].includes(this.activeTool)) {
         if (!isDrawing) {
           isDrawing = true;
           startPt = { x: snappedX, y: snappedZ };
@@ -907,12 +942,22 @@ class CADApp {
           this.uiManager.notify("2D Geometry added to active sketch", "info");
         }
       } else if (this.activeTool === 'select') {
+        // Robust Raycast Selection Fix
         this.viewport.raycaster.setFromCamera(this.viewport.mouse, this.viewport.camera);
-        const intersects = this.viewport.raycaster.intersectObjects(this.geometryManager.bodies.map(b => b.mesh));
+        
+        // Filter out locked objects from pick selection
+        const selectableMeshes = this.geometryManager.bodies
+          .filter(b => !b.locked)
+          .map(b => b.mesh);
+
+        const intersects = this.viewport.raycaster.intersectObjects(selectableMeshes, true);
 
         if (intersects.length > 0) {
-          const hitMesh = intersects[0].object;
-          const foundBody = this.geometryManager.bodies.find(b => b.mesh === hitMesh);
+          let hitMesh = intersects[0].object;
+          while (hitMesh.parent && hitMesh.parent.type !== 'Scene' && !hitMesh.userData.id) {
+            hitMesh = hitMesh.parent;
+          }
+          const foundBody = this.geometryManager.bodies.find(b => b.mesh === hitMesh || b.id === hitMesh.userData.id);
           this.selectEntity(foundBody);
         } else {
           this.selectEntity(null);
@@ -920,11 +965,48 @@ class CADApp {
       }
     };
 
-    // Supports desktop mouse and touch interaction on mobile
-    this.viewport.canvas.addEventListener('click', (e) => handlePointer(e.clientX, e.clientY));
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) onPointerDown(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (e.button === 0) onPointerUp(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        onPointerDown(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (e.changedTouches.length === 1) {
+        onPointerUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      }
+    });
+  }
+
+  toggleLockEntity(obj) {
+    if (!obj || obj.type !== 'body') return;
+    obj.locked = !obj.locked;
+    
+    // Deselect if locked
+    if (obj.locked && this.selectedObject === obj) {
+      this.selectEntity(null);
+    }
+
+    this.uiManager.notify(`${obj.name} is now ${obj.locked ? 'Locked 🔒' : 'Unlocked 🔓'}`, "info");
+    this.uiManager.updateTree();
+    this.uiManager.showProperties(this.selectedObject);
   }
 
   selectEntity(obj) {
+    // Cannot select locked objects directly
+    if (obj && obj.locked) {
+      this.uiManager.notify("Cannot select locked object! Unlock it from Model Tree first.", "error");
+      return;
+    }
+
     if (this.selectedObject && this.selectedObject.type === 'body') {
       this.selectedObject.mesh.material = this.geometryManager.material;
     }
@@ -960,13 +1042,14 @@ class CADApp {
   }
 
   booleanDialog() {
-    if (this.geometryManager.bodies.length < 2) {
-      this.uiManager.notify("At least 2 Solid Bodies required for Boolean CSG!", "error");
+    const unlockedBodies = this.geometryManager.bodies.filter(b => !b.locked);
+    if (unlockedBodies.length < 2) {
+      this.uiManager.notify("At least 2 Unlocked Solid Bodies required for Boolean CSG!", "error");
       return;
     }
 
-    const bodyA = this.geometryManager.bodies[0];
-    const bodyB = this.geometryManager.bodies[1];
+    const bodyA = unlockedBodies[0];
+    const bodyB = unlockedBodies[1];
     
     const op = prompt("Enter CSG Boolean Operation ('subtract', 'union', 'intersect'):", "subtract");
     if (op) {
@@ -988,7 +1071,7 @@ class CADApp {
   }
 
   startTutorial() {
-    alert("ZEN CAD MOBILE & DESKTOP GUIDE:\n\n1. Fullscreen Button: Tap top icon [ ] to toggle desktop/mobile full screen.\n2. Sketch: Tap 'Sketch' tool -> Type plane ('XY').\n3. Draw 2D: Tap Rectangle/Circle tool -> Tap canvas.\n4. Extrude: Tap Extrude tool -> Set depth (e.g. 30mm).\n5. Navigation: Single finger drag to rotate. Two fingers to pan/zoom.");
+    alert("ZEN CAD SELECTION & LOCKING GUIDE:\n\n1. Select Object: Tap directly on any 3D body or pick it from the Model Tree on the right panel.\n2. Lock/Unlock: Tap the lock icon (🔒 / 🔓) next to any item in the Model Tree to prevent accidental selection or editing.\n3. Fullscreen Button: Tap top icon [ ] for fullscreen view.\n4. Rotate/Pan: Drag single finger to rotate view, 2 fingers to pan/zoom.");
   }
 
   openSettings() {
@@ -1013,7 +1096,7 @@ class CADApp {
   }
 }
 
-// Global Instantialization on DOM Ready
+// Global Initialization on DOM Ready
 let app;
 window.addEventListener('DOMContentLoaded', () => {
   app = new CADApp();
