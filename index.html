@@ -3,197 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Circuit Topology Visualizer</title>
+    <title>Orthogonal Schematic Visualizer</title>
     <style>
         :root {
-            --primary: #2563eb;
-            --bg: #f8fafc;
-            --surface: #ffffff;
+            --bg: #ffffff;
+            --grid: #f1f5f9;
             --text: #1e293b;
-            --border: #e2e8f0;
         }
         body {
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: system-ui, sans-serif;
             margin: 0;
             padding: 0;
-            background: var(--bg);
-            color: var(--text);
             display: flex;
             flex-direction: column;
             height: 100vh;
-            overflow: hidden; /* Prevent body scrolling */
+            overflow: hidden;
         }
         .header {
-            padding: 15px 20px 5px 20px;
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
+            padding: 15px;
+            background: white;
+            border-bottom: 1px solid #ccc;
             z-index: 10;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .header h2 { margin: 0 0 10px 0; font-size: 1.2rem; }
         .controls {
             display: flex;
             gap: 10px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
+            margin-top: 10px;
         }
-        input[type="file"] {
+        button, input {
             padding: 8px;
-            border: 1px dashed var(--border);
-            border-radius: 6px;
-            background: var(--bg);
-            cursor: pointer;
-            font-family: monospace;
-            max-width: 250px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
         }
         button {
-            background: var(--primary);
+            background: #2563eb;
             color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            transition: background 0.2s;
         }
-        button:hover { background: #1d4ed8; }
-        .instructions { font-size: 0.85rem; color: #64748b; margin: 0; }
-        
         #canvas-container {
             flex-grow: 1;
-            background: #e2e8f0;
             position: relative;
             cursor: grab;
-            overflow: hidden; /* Hide SVG overflow */
+            overflow: hidden;
+            background-color: var(--bg);
+            /* Schematic Grid Background */
+            background-image: 
+                linear-gradient(var(--grid) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+            background-size: 20px 20px;
         }
         #canvas-container:active { cursor: grabbing; }
+        svg { width: 100%; height: 100%; display: block; }
         
-        svg {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-        
-        /* SVG Styling */
-        .link { stroke: #94a3b8; stroke-width: 1px; fill: none; }
-        .label { font-size: 12px; fill: #0f172a; pointer-events: none; text-anchor: middle; font-family: monospace;}
-        .net-node { fill: #3b82f6; stroke: #fff; stroke-width: 1px; }
-        
-        /* Component Symbols Styling */
-        .sym-stroke { stroke: #ef4444; stroke-width: 2px; fill: none; stroke-linecap: round; stroke-linejoin: round;}
-        .sym-fill { fill: #ef4444; }
-        .ic-box { fill: #f8fafc; stroke: #334155; stroke-width: 2px; }
+        /* Schematic Styles */
+        .wire { stroke: #0056b3; stroke-width: 1.5px; fill: none; stroke-linejoin: round; }
+        .label { font-size: 10px; fill: #000; font-family: monospace; pointer-events: none; text-anchor: middle;}
+        .net-node { fill: #0056b3; }
+        .sym-stroke { stroke: #000; stroke-width: 1.5px; fill: none; stroke-linejoin: round;}
+        .ic-box { fill: #fff; stroke: #000; stroke-width: 1.5px; }
         
         #loading {
-            position: absolute;
-            top: 50%; left: 50%;
+            position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            display: none;
-            pointer-events: none;
+            background: rgba(0,0,0,0.8); color: white;
+            padding: 10px 20px; border-radius: 8px; display: none;
         }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h2>Advanced Circuit Visualizer</h2>
+        <h2 style="margin:0;">Orthogonal Schematic Generator</h2>
+        <p style="margin:5px 0 0 0; font-size:14px; color:#666;">Lines are routed at 90-degree angles and components snap to grid.</p>
         <div class="controls">
             <input type="file" id="fileInput" accept=".txt,.board,*/*" />
-            <button onclick="generateDiagram()">1. Process & Layout</button>
-            <button onclick="resetView()" style="background: #475569;">Reset View</button>
+            <button onclick="generateDiagram()">Process Layout</button>
+            <button onclick="resetView()" style="background: #475569;">Center View</button>
         </div>
-        <p class="instructions">Scroll/Pinch to Zoom. Click/Touch and Drag to Pan.</p>
     </div>
 
     <div id="canvas-container">
         <svg id="circuitSvg">
-            <!-- Define reusable symbols -->
             <defs>
-                <!-- Resistor Zigzag -->
+                <!-- Standard Schematic Symbols -->
                 <g id="sym-R" transform="translate(-15, -5)">
-                    <path d="M 0,5 L 5,5 L 8,0 L 14,10 L 20,0 L 26,10 L 29,5 L 30,5" class="sym-stroke"/>
+                    <path d="M 0,5 L 5,5 L 7,0 L 11,10 L 15,0 L 19,10 L 23,0 L 25,5 L 30,5" class="sym-stroke"/>
                 </g>
-                <!-- Capacitor Parallel Lines -->
                 <g id="sym-C" transform="translate(-10, -10)">
                     <line x1="0" y1="10" x2="8" y2="10" class="sym-stroke" />
-                    <line x1="8" y1="0" x2="8" y2="20" class="sym-stroke" />
-                    <line x1="12" y1="0" x2="12" y2="20" class="sym-stroke" />
+                    <line x1="8" y1="2" x2="8" y2="18" class="sym-stroke" />
+                    <line x1="12" y1="2" x2="12" y2="18" class="sym-stroke" />
                     <line x1="12" y1="10" x2="20" y2="10" class="sym-stroke" />
                 </g>
-                <!-- Inductor Bumps -->
-                <g id="sym-L" transform="translate(-15, -5)">
-                    <path d="M 0,5 L 5,5 Q 8.5,-5 12,5 Q 15.5,-5 19,5 Q 22.5,-5 26,5 L 30,5" class="sym-stroke"/>
-                </g>
-                <!-- Diode / LED -->
-                <g id="sym-D" transform="translate(-10, -10)">
-                    <line x1="0" y1="10" x2="20" y2="10" class="sym-stroke" />
-                    <polygon points="5,5 15,10 5,15" class="sym-fill" />
-                    <line x1="15" y1="5" x2="15" y2="15" class="sym-stroke" />
-                </g>
-                <!-- IC / Chip -->
-                <g id="sym-U" transform="translate(-15, -15)">
-                    <rect x="0" y="0" width="30" height="30" rx="3" class="ic-box" />
-                </g>
-                <!-- Connector / Header -->
-                <g id="sym-J" transform="translate(-10, -15)">
-                    <rect x="0" y="0" width="20" height="30" fill="#cbd5e1" stroke="#64748b" stroke-width="2"/>
-                    <circle cx="10" cy="8" r="2" fill="#334155"/>
-                    <circle cx="10" cy="15" r="2" fill="#334155"/>
-                    <circle cx="10" cy="22" r="2" fill="#334155"/>
+                <g id="sym-U" transform="translate(-20, -20)">
+                    <rect x="0" y="0" width="40" height="40" class="ic-box" />
                 </g>
             </defs>
-            <!-- Viewport group for panning/zooming -->
             <g id="viewport" transform="translate(0,0) scale(1)"></g>
         </svg>
-        <div id="loading">Calculating Layout...</div>
+        <div id="loading">Calculating Grid Layout...</div>
     </div>
 
     <script>
         let nodes = [];
         let edges = [];
-        
-        // Virtual canvas size for physics (much larger than screen to prevent overlap)
-        const VIRTUAL_WIDTH = 5000;
-        const VIRTUAL_HEIGHT = 5000;
+        const VIRTUAL_WIDTH = 6000;
+        const VIRTUAL_HEIGHT = 6000;
+        const GRID_SIZE = 40; // Snap size
 
-        // Viewport State
-        let currentScale = 1;
-        let currentX = 0;
-        let currentY = 0;
-        let isDragging = false;
-        let startDragX = 0;
-        let startDragY = 0;
+        let currentScale = 1, currentX = 0, currentY = 0;
+        let isDragging = false, startDragX = 0, startDragY = 0;
 
-        // Determine component type based on string prefix
         function getComponentType(id) {
             id = id.toUpperCase();
-            if (id.startsWith('R')) return 'R'; // Resistor
-            if (id.startsWith('C')) return 'C'; // Capacitor
-            if (id.startsWith('L') || id.startsWith('E')) return 'L'; // Inductor/Ferrite Bead
-            if (id.startsWith('D') || id.startsWith('DS')) return 'D'; // Diode/LED
-            if (id.startsWith('U') || id.startsWith('Y')) return 'U'; // IC/Crystal
-            if (id.startsWith('J') || id.startsWith('TN')) return 'J'; // Connector/Test Node
-            return 'UNK'; // Unknown/Generic
+            if (id.startsWith('R')) return 'R';
+            if (id.startsWith('C')) return 'C';
+            return 'U'; 
         }
 
         function parseBoardFile(text) {
-            nodes = [];
-            edges = [];
+            nodes = []; edges = [];
             const nodeMap = new Map();
 
             function addNode(id, isNet) {
                 if (!nodeMap.has(id)) {
-                    // Start them randomly but clustered near the center to pull together
                     const node = { 
-                        id: id, 
-                        isNet: isNet,
-                        compType: isNet ? 'NET' : getComponentType(id),
-                        x: (VIRTUAL_WIDTH/2) + (Math.random() - 0.5) * 1000, 
-                        y: (VIRTUAL_HEIGHT/2) + (Math.random() - 0.5) * 1000, 
+                        id: id, isNet: isNet, compType: isNet ? 'NET' : getComponentType(id),
+                        x: (VIRTUAL_WIDTH/2) + (Math.random() - 0.5) * 2000, 
+                        y: (VIRTUAL_HEIGHT/2) + (Math.random() - 0.5) * 2000, 
                         vx: 0, vy: 0 
                     };
                     nodes.push(node);
@@ -203,10 +141,7 @@
             }
 
             const connSection = text.split(/CONNECTIONS/i)[1];
-            if (!connSection) {
-                alert("Could not find CONNECTIONS section in the file.");
-                return false;
-            }
+            if (!connSection) return false;
             
             const connectionsText = connSection.split(/(DEVICES|END)/i)[0];
             const lines = connectionsText.split('\n');
@@ -215,16 +150,15 @@
             lines.forEach(line => {
                 let cleanLine = line.split('!')[0].trimRight();
                 if (!cleanLine.trim()) return;
-
                 const leadingSpaces = cleanLine.length - cleanLine.trimLeft().length;
                 
                 if (leadingSpaces < 4 && cleanLine.trim() !== '') {
                     currentNet = cleanLine.trim();
-                    addNode(currentNet, true); // It's a net
+                    addNode(currentNet, true);
                 } else if (leadingSpaces >= 4 && currentNet) {
                     let componentPart = cleanLine.trim().split('.')[0].replace(';', '');
                     if (componentPart) {
-                        addNode(componentPart, false); // It's a component
+                        addNode(componentPart, false);
                         edges.push({ source: currentNet, target: componentPart });
                     }
                 }
@@ -234,263 +168,154 @@
 
         function generateDiagram() {
             const fileInput = document.getElementById('fileInput');
-            if (fileInput.files.length === 0) {
-                alert("Please upload a board file first.");
-                return;
-            }
-
+            if (fileInput.files.length === 0) return;
             document.getElementById('loading').style.display = 'block';
 
-            const file = fileInput.files[0];
             const reader = new FileReader();
-
             reader.onload = function(e) {
-                const text = e.target.result;
-                // Allow UI to update loading screen before locking thread with physics
                 setTimeout(() => {
-                    if (parseBoardFile(text)) {
+                    if (parseBoardFile(e.target.result)) {
                         runPhysicsLayout();
                         renderSVG();
-                        resetView(); // Center drawing
+                        resetView();
                     }
                     document.getElementById('loading').style.display = 'none';
                 }, 50);
             };
-            reader.readAsText(file);
+            reader.readAsText(fileInput.files[0]);
         }
 
         function runPhysicsLayout() {
-            const iterations = 200; // Increased iterations for better untangling
-            const k = 80; // Larger optimal distance to spread things out
-
+            const iterations = 300; 
+            const k = 120; 
             const nodeDict = {};
             nodes.forEach(n => nodeDict[n.id] = n);
 
             for (let iter = 0; iter < iterations; iter++) {
-                // Repulsion
                 for (let i = 0; i < nodes.length; i++) {
                     for (let j = i + 1; j < nodes.length; j++) {
                         let dx = nodes[i].x - nodes[j].x;
                         let dy = nodes[i].y - nodes[j].y;
                         let distSq = dx*dx + dy*dy;
                         if (distSq === 0) distSq = 0.01;
-                        if (distSq < 40000) { // Only repulse if somewhat close
+                        if (distSq < 90000) { 
                             let force = (k * k) / distSq;
-                            nodes[i].vx += force * dx;
-                            nodes[i].vy += force * dy;
-                            nodes[j].vx -= force * dx;
-                            nodes[j].vy -= force * dy;
+                            nodes[i].vx += force * dx; nodes[i].vy += force * dy;
+                            nodes[j].vx -= force * dx; nodes[j].vy -= force * dy;
                         }
                     }
                 }
 
-                // Attraction
                 edges.forEach(edge => {
-                    let source = nodeDict[edge.source];
-                    let target = nodeDict[edge.target];
+                    let source = nodeDict[edge.source], target = nodeDict[edge.target];
                     if(!source || !target) return;
-                    let dx = target.x - source.x;
-                    let dy = target.y - source.y;
+                    let dx = target.x - source.x, dy = target.y - source.y;
                     let dist = Math.sqrt(dx*dx + dy*dy);
                     if (dist === 0) dist = 0.01;
                     
                     let force = (dist * dist) / k;
-                    let fx = (force * dx) / dist;
-                    let fy = (force * dy) / dist;
+                    let fx = (force * dx) / dist, fy = (force * dy) / dist;
                     
-                    source.vx += fx;
-                    source.vy += fy;
-                    target.vx -= fx;
-                    target.vy -= fy;
+                    source.vx += fx; source.vy += fy;
+                    target.vx -= fx; target.vy -= fy;
                 });
 
-                // Apply velocity and cool down
-                const temp = (1 - iter / iterations) * 40; 
+                const temp = (1 - iter / iterations) * 50; 
                 nodes.forEach(n => {
                     let vDist = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
                     if (vDist > 0) {
                         n.x += (n.vx / vDist) * Math.min(vDist, temp);
                         n.y += (n.vy / vDist) * Math.min(vDist, temp);
                     }
-                    n.x = Math.max(50, Math.min(VIRTUAL_WIDTH - 50, n.x));
-                    n.y = Math.max(50, Math.min(VIRTUAL_HEIGHT - 50, n.y));
-                    n.vx = 0;
-                    n.vy = 0;
+                    n.vx = 0; n.vy = 0;
                 });
             }
+
+            // SNAP TO GRID
+            nodes.forEach(n => {
+                n.x = Math.round(n.x / GRID_SIZE) * GRID_SIZE;
+                n.y = Math.round(n.y / GRID_SIZE) * GRID_SIZE;
+            });
         }
 
         function renderSVG() {
             const viewport = document.getElementById('viewport');
             viewport.innerHTML = '';
-
             const nodeDict = {};
             nodes.forEach(n => nodeDict[n.id] = n);
 
-            // 1. Draw Wires (Edges) first so they are underneath
+            // Draw Manhattan Orthogonal Wires
             edges.forEach(edge => {
-                let source = nodeDict[edge.source];
-                let target = nodeDict[edge.target];
+                let source = nodeDict[edge.source], target = nodeDict[edge.target];
                 if(source && target) {
-                    let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    line.setAttribute('x1', source.x);
-                    line.setAttribute('y1', source.y);
-                    line.setAttribute('x2', target.x);
-                    line.setAttribute('y2', target.y);
-                    line.setAttribute('class', 'link');
-                    viewport.appendChild(line);
+                    let path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    let midX = (source.x + target.x) / 2;
+                    // Snap mid point to grid
+                    midX = Math.round(midX / GRID_SIZE) * GRID_SIZE;
+                    
+                    // Manhattan routing data
+                    let d = `M ${source.x} ${source.y} L ${midX} ${source.y} L ${midX} ${target.y} L ${target.x} ${target.y}`;
+                    path.setAttribute('d', d);
+                    path.setAttribute('class', 'wire');
+                    viewport.appendChild(path);
                 }
             });
 
-            // 2. Draw Nodes (Symbols/Dots)
+            // Draw Nodes & Labels
             nodes.forEach(n => {
                 if (n.isNet) {
-                    // Draw small blue dot for nets
                     let circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('cx', n.x);
-                    circle.setAttribute('cy', n.y);
-                    circle.setAttribute('r', 6);
-                    circle.setAttribute('class', 'net-node');
+                    circle.setAttribute('cx', n.x); circle.setAttribute('cy', n.y);
+                    circle.setAttribute('r', 4); circle.setAttribute('class', 'net-node');
                     viewport.appendChild(circle);
                 } else {
-                    // Draw specific symbol
                     let use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-                    let symId = '#sym-UNK'; // Fallback
-                    if (n.compType !== 'UNK') {
-                        symId = '#sym-' + n.compType;
-                    } else {
-                        // Fallback generic box
-                        symId = '#sym-U';
-                    }
-                    use.setAttribute('href', symId);
-                    use.setAttribute('x', n.x);
-                    use.setAttribute('y', n.y);
+                    use.setAttribute('href', '#sym-' + n.compType);
+                    use.setAttribute('x', n.x); use.setAttribute('y', n.y);
                     viewport.appendChild(use);
                 }
 
-                // 3. Draw Label
                 let text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 text.setAttribute('x', n.x);
-                // Offset text below the symbol
-                text.setAttribute('y', n.y + (n.compType === 'U' || n.compType === 'J' ? 25 : 18));
+                text.setAttribute('y', n.y + (n.compType === 'U' ? 30 : 20));
                 text.setAttribute('class', 'label');
                 text.textContent = n.id;
                 viewport.appendChild(text);
             });
         }
 
-        // --- PAN AND ZOOM INTERACTIVITY LOGIC ---
-        
+        // Viewport Controls (Pan & Zoom)
         function updateTransform() {
-            const viewport = document.getElementById('viewport');
-            viewport.setAttribute('transform', `translate(${currentX}, ${currentY}) scale(${currentScale})`);
+            document.getElementById('viewport').setAttribute('transform', `translate(${currentX}, ${currentY}) scale(${currentScale})`);
+            // Parallax grid effect
+            document.getElementById('canvas-container').style.backgroundPosition = `${currentX}px ${currentY}px`;
+            document.getElementById('canvas-container').style.backgroundSize = `${20 * currentScale}px ${20 * currentScale}px`;
         }
 
         function resetView() {
             const container = document.getElementById('canvas-container');
-            // Auto scale to try and fit the virtual canvas (roughly)
-            currentScale = Math.min(container.clientWidth / 2500, container.clientHeight / 2500);
-            if(currentScale < 0.1) currentScale = 0.1;
-            
-            // Center it based on the bounds of the nodes
-            let minX = VIRTUAL_WIDTH, minY = VIRTUAL_HEIGHT, maxX = 0, maxY = 0;
-            nodes.forEach(n => {
-                if(n.x < minX) minX = n.x;
-                if(n.x > maxX) maxX = n.x;
-                if(n.y < minY) minY = n.y;
-                if(n.y > maxY) maxY = n.y;
-            });
-
-            if (nodes.length > 0) {
-                let centerX = (minX + maxX) / 2;
-                let centerY = (minY + maxY) / 2;
-                currentX = (container.clientWidth / 2) - (centerX * currentScale);
-                currentY = (container.clientHeight / 2) - (centerY * currentScale);
-            } else {
-                currentX = 0; currentY = 0; currentScale = 1;
-            }
+            currentScale = 0.5;
+            currentX = -(VIRTUAL_WIDTH/2 * currentScale) + (container.clientWidth/2);
+            currentY = -(VIRTUAL_HEIGHT/2 * currentScale) + (container.clientHeight/2);
             updateTransform();
         }
 
         const container = document.getElementById('canvas-container');
-
-        // Mouse Events
-        container.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startDragX = e.clientX - currentX;
-            startDragY = e.clientY - currentY;
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            currentX = e.clientX - startDragX;
-            currentY = e.clientY - startDragY;
-            updateTransform();
-        });
-
+        container.addEventListener('mousedown', e => { isDragging = true; startDragX = e.clientX - currentX; startDragY = e.clientY - currentY; });
+        window.addEventListener('mousemove', e => { if (isDragging) { currentX = e.clientX - startDragX; currentY = e.clientY - startDragY; updateTransform(); }});
         window.addEventListener('mouseup', () => isDragging = false);
 
-        // Wheel (Scroll to Zoom)
-        container.addEventListener('wheel', (e) => {
+        container.addEventListener('wheel', e => {
             e.preventDefault();
-            const zoomSensitivity = 0.001;
-            const delta = -e.deltaY * zoomSensitivity;
-            const newScale = Math.max(0.05, Math.min(5, currentScale + delta));
-            
-            // Zoom toward mouse pointer
+            const delta = -e.deltaY * 0.001;
+            const newScale = Math.max(0.1, Math.min(3, currentScale + delta));
             const rect = container.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
+            const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
             currentX = mouseX - (mouseX - currentX) * (newScale / currentScale);
             currentY = mouseY - (mouseY - currentY) * (newScale / currentScale);
             currentScale = newScale;
-            
             updateTransform();
         });
-
-        // Touch Events (Mobile Support)
-        let initialPinchDistance = null;
-        let initialScale = 1;
-
-        container.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-                isDragging = true;
-                startDragX = e.touches[0].clientX - currentX;
-                startDragY = e.touches[0].clientY - currentY;
-            } else if (e.touches.length === 2) {
-                isDragging = false;
-                initialPinchDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                initialScale = currentScale;
-            }
-        }, {passive: false});
-
-        container.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // Stop screen scrolling
-            if (isDragging && e.touches.length === 1) {
-                currentX = e.touches[0].clientX - startDragX;
-                currentY = e.touches[0].clientY - startDragY;
-                updateTransform();
-            } else if (e.touches.length === 2 && initialPinchDistance) {
-                const currentPinchDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                const scaleFactor = currentPinchDistance / initialPinchDistance;
-                currentScale = Math.max(0.05, Math.min(5, initialScale * scaleFactor));
-                // Center pinch zooming isn't fully calculated here for brevity, pivots from origin
-                updateTransform();
-            }
-        }, {passive: false});
-
-        container.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) initialPinchDistance = null;
-            if (e.touches.length === 0) isDragging = false;
-        });
-
     </script>
 </body>
 </html>
