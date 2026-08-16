@@ -1,357 +1,972 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web CAD Studio & Measuring Tool</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #121212; color: #e0e0e0; overflow: hidden; display: flex; height: 100vh; width: 100vw; }
-        #app-container { display: flex; width: 100%; height: 100%; position: relative; }
-        #viewport { flex-grow: 1; height: 100%; position: relative; }
-        #canvas3d { width: 100%; height: 100%; display: block; }
-        
-        #sidebar {
-            width: 340px; background: #1e1e1e; border-left: 1px solid #333;
-            display: flex; flex-direction: column; gap: 10px; padding: 12px;
-            overflow-y: auto; z-index: 10; transition: transform 0.3s ease;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZEN CAD - Parametric 3D Modeling Engine</title>
+  
+  <!-- CDNs for 3D Viewport, Math & Constructive Solid Geometry (CSG) Kernel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/bundle/index.umd.min.js"></script>
 
-        .panel-section { background: #161616; border: 1px solid #2d2d2d; border-radius: 6px; padding: 10px; }
-        .panel-title { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #3b82f6; margin-bottom: 8px; border-bottom: 1px solid #2d2d2d; padding-bottom: 4px; }
-        .control-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
-        .row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-        .btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  <style>
+    /* ==========================================================================
+       ZEN CAD PROFESSIONAL DARK THEME STYLESHEET
+       ========================================================================== */
+    :root {
+      --bg-darker: #121316;
+      --bg-dark: #1a1c23;
+      --bg-panel: #222530;
+      --bg-element: #2c303e;
+      --bg-hover: #3a3f52;
+      --accent: #007acc;
+      --accent-hover: #0098ff;
+      --accent-active: #005999;
+      --text-main: #e0e6ed;
+      --text-muted: #8a95a5;
+      --border-color: #2f3444;
+      --highlight-orange: #ff9800;
+      --highlight-green: #4caf50;
+      --highlight-red: #f44336;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-        label { font-size: 11px; color: #aaa; display: flex; justify-content: space-between; }
-        input, select, button { background: #2a2a2a; color: #fff; border: 1px solid #3d3d3d; padding: 6px; border-radius: 4px; font-size: 12px; outline: none; }
-        input[type="number"] { width: 100%; }
-        input[type="color"] { height: 32px; width: 100%; padding: 0; cursor: pointer; }
-        
-        button { background: #2563eb; cursor: pointer; font-weight: 600; border: none; min-height: 32px; }
-        button:active { opacity: 0.8; }
-        button.active { background: #059669 !important; }
-        button.danger { background: #dc2626; }
-        button.secondary { background: #374151; }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; font-family: var(--font-family); background-color: var(--bg-darker); color: var(--text-main); font-size: 12px; }
 
-        #toolbar {
-            position: absolute; top: 10px; left: 10px; background: rgba(30, 30, 30, 0.9);
-            backdrop-filter: blur(5px); border: 1px solid #333; padding: 4px; border-radius: 6px; display: flex; gap: 4px; z-index: 5;
-        }
-        .tool-btn { padding: 6px 10px; font-size: 11px; background: transparent; }
-        .tool-btn.active { background: #2563eb; }
+    #app-container { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
 
-        #measure-badge {
-            position: absolute; bottom: 15px; left: 15px; background: rgba(0,0,0,0.85);
-            border: 1px solid #3b82f6; padding: 8px 14px; border-radius: 6px; font-family: monospace; font-size: 13px; color: #60a5fa; pointer-events: none;
-        }
-        #mobile-toggle { display: none; position: absolute; top: 10px; right: 10px; z-index: 20; background: #2563eb; }
+    /* TOP BAR */
+    #top-bar { height: 40px; background-color: var(--bg-dark); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; z-index: 10; }
+    .logo-container { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; letter-spacing: 1px; color: #fff; }
+    .logo-icon { width: 20px; height: 20px; fill: var(--accent); }
+    .menu-bar { display: flex; gap: 2px; }
+    .menu-item { padding: 4px 10px; border-radius: 4px; cursor: pointer; color: var(--text-muted); }
+    .menu-item:hover { background-color: var(--bg-hover); color: var(--text-main); }
+    .project-title { font-weight: 600; color: var(--text-muted); }
+    .top-actions { display: flex; gap: 6px; align-items: center; }
 
-        @media (max-width: 768px) {
-            #mobile-toggle { display: block; }
-            #sidebar { position: absolute; bottom: 0; left: 0; width: 100%; max-height: 50vh; border-radius: 12px 12px 0 0; transform: translateY(100%); }
-            #sidebar.open { transform: translateY(0); }
-        }
-    </style>
-    <!-- Three.js + Extensions + CSG Boolean Engine -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/OBJExporter.js"></script>
-    <script src="https://unpkg.com/three-csg-ts@3.1.11/single/three-csg.js"></script>
+    /* BUTTONS & INPUTS */
+    .btn { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-main); padding: 5px 12px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; transition: all 0.15s ease; }
+    .btn:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+    .btn-primary { background: var(--accent); border-color: var(--accent-hover); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: #5a1e1e; border-color: var(--highlight-red); color: #fff; }
+    .btn-icon { padding: 5px; width: 28px; height: 28px; justify-content: center; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    input[type="text"], input[type="number"], select { background: var(--bg-darker); border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 8px; border-radius: 3px; font-size: 12px; width: 100%; }
+    input:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+    /* MAIN LAYOUT */
+    #main-layout { display: flex; flex: 1; position: relative; overflow: hidden; }
+
+    /* LEFT TOOLBAR */
+    #left-toolbar { width: 50px; background: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px; z-index: 5; }
+    .tool-btn { width: 38px; height: 38px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: transparent; border: none; fill: var(--text-muted); position: relative; }
+    .tool-btn:hover { background: var(--bg-hover); fill: var(--text-main); }
+    .tool-btn.active { background: var(--accent); fill: #fff; }
+    .tool-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+    .tool-separator { width: 26px; height: 1px; background: var(--border-color); margin: 4px 0; }
+
+    /* VIEWPORT */
+    #viewport-container { flex: 1; position: relative; background: radial-gradient(circle at center, #262936 0%, #111217 100%); }
+    #canvas3d { width: 100%; height: 100%; display: block; }
+    
+    /* NAV CUBE & VIEWPORT CONTROLS */
+    #nav-cube-container { position: absolute; top: 12px; right: 12px; width: 90px; height: 90px; pointer-events: auto; }
+    .viewport-overlay-controls { position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; z-index: 4; }
+
+    /* RIGHT PROPERTIES PANEL */
+    #right-panel { width: 280px; background: var(--bg-panel); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 5; }
+    .panel-section { border-bottom: 1px solid var(--border-color); }
+    .panel-header { padding: 10px 12px; background: var(--bg-dark); font-weight: 600; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .panel-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* TREE VIEW */
+    .tree-view { overflow-y: auto; max-height: 250px; font-family: monospace; }
+    .tree-item { padding: 4px 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border-radius: 3px; }
+    .tree-item:hover { background: var(--bg-hover); }
+    .tree-item.selected { background: rgba(0, 122, 204, 0.3); border-left: 3px solid var(--accent); }
+    .tree-item-icon { margin-right: 6px; opacity: 0.7; }
+
+    /* BOTTOM STATUS BAR */
+    #status-bar { height: 26px; background: var(--bg-dark); border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: 11px; color: var(--text-muted); z-index: 10; }
+    .status-group { display: flex; gap: 16px; align-items: center; }
+
+    /* DIALOG MODALS */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal-card { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; width: 400px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 16px; }
+    .modal-title { font-size: 16px; font-weight: 600; color: #fff; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+    /* FLOATING NOTIFICATION BANNER */
+    #toast-container { position: absolute; bottom: 36px; right: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+    .toast { background: var(--bg-dark); border: 1px solid var(--border-color); border-left: 4px solid var(--accent); padding: 10px 14px; border-radius: 4px; font-size: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); animation: slideIn 0.2s ease; }
+    .toast.error { border-left-color: var(--highlight-red); }
+    .toast.success { border-left-color: var(--highlight-green); }
+
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+    /* TOOLTIP */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 8px; background: var(--bg-darker); border: 1px solid var(--border-color); color: #fff; padding: 4px 8px; border-radius: 4px; white-space: nowrap; font-size: 11px; z-index: 99; pointer-events: none; }
+  </style>
 </head>
 <body>
 
-    <div id="app-container">
-        <button id="mobile-toggle" onclick="toggleSidebar()">⚙️ CAD Panel</button>
-        <div id="viewport">
-            <div id="toolbar">
-                <button class="tool-btn active" id="mode-translate" onclick="setTransformMode('translate')">Move</button>
-                <button class="tool-btn" id="mode-rotate" onclick="setTransformMode('rotate')">Rotate</button>
-                <button class="tool-btn" id="mode-scale" onclick="setTransformMode('scale')">Scale</button>
-                <button class="tool-btn" id="mode-measure" onclick="toggleMeasureMode()">📏 Measure</button>
-            </div>
-            <div id="measure-badge">Distance: 0.00 mm</div>
-            <canvas id="canvas3d"></canvas>
-        </div>
-
-        <div id="sidebar">
-            <!-- Camera Presets -->
-            <div class="panel-section">
-                <div class="panel-title">Standard Views</div>
-                <div class="row-3">
-                    <button class="secondary" onclick="setView('top')">Top</button>
-                    <button class="secondary" onclick="setView('front')">Front</button>
-                    <button class="secondary" onclick="setView('right')">Right</button>
-                </div>
-            </div>
-
-            <!-- Precision Numerical Inputs -->
-            <div class="panel-section">
-                <div class="panel-title">Precision Transforms (mm)</div>
-                <div class="control-group">
-                    <label>Position X / Y / Z</label>
-                    <div class="row-3">
-                        <input type="number" id="pos-x" step="0.1" onchange="applyTransformInput()">
-                        <input type="number" id="pos-y" step="0.1" onchange="applyTransformInput()">
-                        <input type="number" id="pos-z" step="0.1" onchange="applyTransformInput()">
-                    </div>
-                </div>
-                <div class="control-group">
-                    <label>Bounding Dimensions (LxWxH)</label>
-                    <div class="row-3">
-                        <input type="text" id="dim-x" readonly style="opacity:0.6;">
-                        <input type="text" id="dim-y" readonly style="opacity:0.6;">
-                        <input type="text" id="dim-z" readonly style="opacity:0.6;">
-                    </div>
-                </div>
-            </div>
-
-            <!-- CAD Booleans (Extrude/Subtract) -->
-            <div class="panel-section">
-                <div class="panel-title">Solid Operations (Select 2 Meshes)</div>
-                <div class="btn-grid">
-                    <button class="secondary" onclick="performCSG('subtract')">Extrude Cut (-)</button>
-                    <button class="secondary" onclick="performCSG('union')">Combine (+)</button>
-                </div>
-            </div>
-
-            <!-- Import/Primitives -->
-            <div class="panel-section">
-                <div class="panel-title">Primitives & Files</div>
-                <div class="btn-grid" style="margin-bottom:6px;">
-                    <button onclick="addCube()">Cube</button>
-                    <button onclick="addCylinder()">Cylinder</button>
-                </div>
-                <input type="file" id="file-input" accept=".obj,.stl" style="display:none;" onchange="handleFileUpload(event)">
-                <button class="secondary" style="width:100%;" onclick="document.getElementById('file-input').click()">Import STL/OBJ Scan</button>
-            </div>
-
-            <!-- Material & Export -->
-            <div class="panel-section">
-                <div class="panel-title">Export CAD Data</div>
-                <div class="btn-grid">
-                    <button class="danger" onclick="deleteSelected()">Delete</button>
-                    <button onclick="exportSTL()">Download STL</button>
-                </div>
-            </div>
-        </div>
+<div id="app-container">
+  <!-- TOP HEADER BAR -->
+  <header id="top-bar">
+    <div class="logo-container">
+      <svg class="logo-icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      ZEN CAD
+    </div>
+    
+    <div class="menu-bar">
+      <div class="menu-item" onclick="app.fileManager.newProject()">File</div>
+      <div class="menu-item" onclick="app.historyManager.undo()">Edit</div>
+      <div class="menu-item" onclick="app.viewport.toggleWireframe()">View</div>
+      <div class="menu-item" onclick="app.showDemoModel()">Insert</div>
+      <div class="menu-item" onclick="app.openSettings()">Tools</div>
+      <div class="menu-item" onclick="app.startTutorial()">Help</div>
     </div>
 
-    <script>
-        let scene, camera, renderer, orbitControls, transformControls;
-        let selectedObject = null, selectedObjectsGroup = [];
-        let isMeasuring = false, measurePoints = [], measureLine = null;
-        const objects = [];
+    <div class="project-title" id="project-title-display">Untitled Project.zencad</div>
 
-        init();
-        animate();
+    <div class="top-actions">
+      <button class="btn btn-icon" data-tooltip="Undo (Ctrl+Z)" onclick="app.historyManager.undo()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+      </button>
+      <button class="btn btn-icon" data-tooltip="Redo (Ctrl+Y)" onclick="app.historyManager.redo()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22l2.37.78C4.95 12.81 7.96 10.5 11.5 10.5c1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
+      </button>
+      <button class="btn btn-primary" onclick="app.fileManager.saveJSON()">Save</button>
+      <button class="btn" onclick="app.fileManager.exportSTL()">Export STL</button>
+    </div>
+  </header>
 
-        function init() {
-            const viewport = document.getElementById('viewport');
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x121212);
+  <!-- MAIN APP WORKSPACE -->
+  <div id="main-layout">
+    <!-- LEFT TOOLBAR -->
+    <aside id="left-toolbar">
+      <button class="tool-btn active" id="tool-select" data-tooltip="Select Entity (Esc)" onclick="app.setTool('select')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M7 2l12 11.2-5.8.5 3.3 7.3-2.2 1-3.2-7.4L7 18.5V2z"/></svg>
+      </button>
+      <button class="tool-btn" id="tool-sketch" data-tooltip="Create Sketch (S)" onclick="app.setTool('sketch')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </button>
+      
+      <div class="tool-separator"></div>
 
-            const gridHelper = new THREE.GridHelper(50, 50, 0x3b82f6, 0x333333);
-            scene.add(gridHelper);
+      <!-- SKETCH SUB-TOOLS -->
+      <button class="tool-btn disabled" id="tool-line" data-tooltip="Line (L)" onclick="app.setTool('line')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M3.5 18.5l17-13M5 19a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm17-14a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+      <button class="tool-btn disabled" id="tool-rect" data-tooltip="Rectangle (R)" onclick="app.setTool('rect')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+      <button class="tool-btn disabled" id="tool-circle" data-tooltip="Circle (C)" onclick="app.setTool('circle')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
 
-            camera = new THREE.PerspectiveCamera(50, viewport.clientWidth / viewport.clientHeight, 0.1, 1000);
-            camera.position.set(10, 10, 10);
+      <div class="tool-separator"></div>
 
-            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas3d'), antialias: true });
-            renderer.setSize(viewport.clientWidth, viewport.clientHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      <!-- 3D FEATURES -->
+      <button class="tool-btn" id="tool-extrude" data-tooltip="Extrude Profile (E)" onclick="app.setTool('extrude')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M19 6h-2c0-2.21-1.79-4-4-4H5c-2.21 0-4 1.79-4 4v8c0 2.21 1.79 4 4 4h2c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V10c0-2.21-1.79-4-4-4zM5 16c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v2H9c-2.21 0-4 1.79-4 4v4H5zm14 2c0 1.1-.9 2-2 2h-8c-1.1 0-2-.9-2-2v-8c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v8z"/></svg>
+      </button>
+      <button class="tool-btn" id="tool-revolve" data-tooltip="Revolve Profile" onclick="app.setTool('revolve')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12A10 10 0 0 0 12 22A10 10 0 0 0 22 12A10 10 0 0 0 12 2M12 4A8 8 0 0 1 20 12A8 8 0 0 1 12 20V4Z"/></svg>
+      </button>
+      <button class="tool-btn" id="tool-boolean" data-tooltip="Boolean Operations" onclick="app.setTool('boolean')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M15 4H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 12H5V6h10v10zM9 2h10c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2h-2v-2h2V4H9v2H7V4c0-1.1.9-2 2-2z"/></svg>
+      </button>
+      <button class="tool-btn" id="tool-fillet" data-tooltip="Fillet Edge" onclick="app.setTool('fillet')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M4 4v16h16v-4C11.16 16 8 12.84 8 4H4z"/></svg>
+      </button>
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-            sun.position.set(20, 40, 20);
-            scene.add(sun);
+      <div class="tool-separator"></div>
 
-            orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
-            orbitControls.enableDamping = true;
+      <!-- UTILITIES -->
+      <button class="tool-btn" id="tool-move" data-tooltip="Transform Geometry (M)" onclick="app.setTool('move')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
+      </button>
+      <button class="tool-btn" id="tool-measure" data-tooltip="Measure Geometry" onclick="app.setTool('measure')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h2v4h2V5h2v2h2V5h2v4h2V5h2v14z"/></svg>
+      </button>
+    </aside>
 
-            transformControls = new THREE.TransformControls(camera, renderer.domElement);
-            scene.add(transformControls);
-            transformControls.addEventListener('dragging-changed', (e) => orbitControls.enabled = !e.value);
-            transformControls.addEventListener('change', updateTransformUI);
+    <!-- 3D VIEWPORT CONTAINER -->
+    <main id="viewport-container">
+      <div class="viewport-overlay-controls">
+        <button class="btn" onclick="app.viewport.setStandardView('iso')">ISO</button>
+        <button class="btn" onclick="app.viewport.setStandardView('top')">Top</button>
+        <button class="btn" onclick="app.viewport.setStandardView('front')">Front</button>
+        <button class="btn" onclick="app.viewport.setStandardView('right')">Right</button>
+        <button class="btn" onclick="app.viewport.fitAll()">Fit All</button>
+      </div>
+      <canvas id="canvas3d"></canvas>
+    </main>
 
-            // Selection & Measurement Raycasting
-            const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2();
+    <!-- RIGHT PROPERTIES & OBJECT TREE PANEL -->
+    <aside id="right-panel">
+      <!-- OBJECT TREE -->
+      <div class="panel-section">
+        <div class="panel-header">
+          <span>MODEL TREE</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+        <div class="panel-body">
+          <div class="tree-view" id="feature-tree">
+            <!-- Dynamically populated tree items -->
+          </div>
+        </div>
+      </div>
 
-            renderer.domElement.addEventListener('pointerdown', (e) => {
-                if (transformControls.dragging) return;
-                const rect = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-                raycaster.setFromCamera(mouse, camera);
+      <!-- PROPERTIES EDITOR -->
+      <div class="panel-section" style="flex:1;">
+        <div class="panel-header">
+          <span>PROPERTIES</span>
+        </div>
+        <div class="panel-body" id="properties-content">
+          <div style="color: var(--text-muted); text-align: center; padding: 20px 0;">
+            No Object Selected
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
 
-                if (isMeasuring) {
-                    const intersects = raycaster.intersectObjects(objects, true);
-                    if (intersects.length > 0) handleMeasurementPoint(intersects[0].point);
-                    return;
-                }
+  <!-- BOTTOM STATUS BAR -->
+  <footer id="status-bar">
+    <div class="status-group">
+      <span id="status-tool">Tool: Select</span>
+      <span id="status-coords">X: 0.00 Y: 0.00 Z: 0.00</span>
+    </div>
+    <div class="status-group">
+      <span id="status-selection">Selected: None</span>
+      <span>Units: mm</span>
+      <span>Grid: 10mm [SNAP]</span>
+    </div>
+  </footer>
+</div>
 
-                const intersects = raycaster.intersectObjects(objects, true);
-                if (intersects.length > 0) {
-                    let hitObj = intersects[0].object;
-                    while (hitObj.parent && hitObj.parent !== scene) hitObj = hitObj.parent;
-                    
-                    if (e.shiftKey) {
-                        toggleMultiSelect(hitObj);
-                    } else {
-                        selectedObjectsGroup = [hitObj];
-                        selectObject(hitObj);
-                    }
-                }
+<!-- TOAST NOTIFICATION CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- ==========================================================================
+     ZEN CAD MONOLITHIC JAVASCRIPT ENGINE
+     ========================================================================== -->
+<script>
+/**
+ * ZEN CAD - Core Engine Architecture
+ * Direct vanilla JS object modules managing CAD Parametric Data, CSG Geometry Kernel,
+ * 3D Viewport Rendering, Interactive Tools, and UI state.
+ */
+
+// Global Application Core Namespace
+const ZEN = {
+  units: 'mm',
+  gridSize: 10,
+  snapToGrid: true,
+};
+
+/* ==========================================================================
+   1. UTILITY & MATH HELPERS
+   ========================================================================== */
+class CADMath {
+  static snap(val, step) {
+    return Math.round(val / step) * step;
+  }
+  static formatNum(num, decimals = 2) {
+    return Number(num).toFixed(decimals);
+  }
+  static generateGUID() {
+    return 'cad_' + Math.random().toString(36).substr(2, 9);
+  }
+}
+
+/* ==========================================================================
+   2. VIEWPORT & THREE.JS CANVAS MANAGER
+   ========================================================================== */
+class ViewportManager {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
+    this.container = document.getElementById('viewport-container');
+    
+    // Scene Initialization
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x1a1c23);
+
+    // Camera Configuration
+    const aspect = this.container.clientWidth / this.container.clientHeight;
+    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 2000);
+    this.camera.position.set(150, 150, 150);
+
+    // Renderer Setup
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
+    this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+
+    // Controls
+    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+
+    // Raycasting & Interaction Selection Setup
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+
+    this.setupLighting();
+    this.setupHelpers();
+    this.bindEvents();
+
+    this.isWireframe = false;
+    this.animate();
+  }
+
+  setupLighting() {
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    this.scene.add(ambientLight);
+
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.7);
+    dirLight1.position.set(200, 400, 200);
+    dirLight1.castShadow = true;
+    this.scene.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0x90b0ff, 0.3);
+    dirLight2.position.set(-200, -200, -100);
+    this.scene.add(dirLight2);
+  }
+
+  setupHelpers() {
+    // Grid Helper
+    this.grid = new THREE.GridHelper(500, 50, 0x007acc, 0x3a3f52);
+    this.grid.position.y = -0.01;
+    this.scene.add(this.grid);
+
+    // Axis Helper
+    this.axes = new THREE.AxesHelper(30);
+    this.scene.add(this.axes);
+  }
+
+  bindEvents() {
+    window.addEventListener('resize', () => this.onWindowResize());
+
+    this.canvas.addEventListener('mousemove', (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      const worldPos = this.getWorldIntersectionPlane();
+      if (worldPos) {
+        document.getElementById('status-coords').innerText = 
+          `X: ${CADMath.formatNum(worldPos.x)} Y: ${CADMath.formatNum(worldPos.y)} Z: ${CADMath.formatNum(worldPos.z)}`;
+      }
+    });
+  }
+
+  getWorldIntersectionPlane() {
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const target = new THREE.Vector3();
+    return this.raycaster.ray.intersectPlane(plane, target) ? target : null;
+  }
+
+  onWindowResize() {
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height);
+  }
+
+  setStandardView(view) {
+    const dist = 200;
+    switch(view) {
+      case 'top': this.camera.position.set(0, dist, 0.0001); break;
+      case 'front': this.camera.position.set(0, 0, dist); break;
+      case 'right': this.camera.position.set(dist, 0, 0); break;
+      case 'iso': this.camera.position.set(dist, dist, dist); break;
+    }
+    this.controls.target.set(0,0,0);
+    this.controls.update();
+  }
+
+  fitAll() {
+    this.camera.position.set(120, 120, 120);
+    this.controls.target.set(0,0,0);
+    this.controls.update();
+  }
+
+  toggleWireframe() {
+    this.isWireframe = !this.isWireframe;
+    app.geometryManager.bodies.forEach(b => {
+      if(b.mesh) b.mesh.material.wireframe = this.isWireframe;
+    });
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    this.controls.update();
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+/* ==========================================================================
+   3. SKETCH & 2D ENGINE
+   ========================================================================== */
+class Sketch {
+  constructor(id, name, plane = 'XY') {
+    this.id = id || CADMath.generateGUID();
+    this.name = name || 'Sketch 1';
+    this.plane = plane;
+    this.elements = []; // Lines, Circles, Rectangles
+    this.group = new THREE.Group();
+  }
+
+  addEntity(entity) {
+    this.elements.push(entity);
+    this.rebuildMesh();
+  }
+
+  rebuildMesh() {
+    // Clear old renders
+    while(this.group.children.length > 0){ 
+      this.group.remove(this.group.children[0]); 
+    }
+
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x0098ff, linewidth: 2 });
+
+    this.elements.forEach(el => {
+      if (el.type === 'line') {
+        const geom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(el.x1, el.y1, 0),
+          new THREE.Vector3(el.x2, el.y2, 0)
+        ]);
+        const line = new THREE.Line(geom, lineMat);
+        this.group.add(line);
+      } else if (el.type === 'rect') {
+        const shape = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(el.x, el.y, 0),
+          new THREE.Vector3(el.x + el.w, el.y, 0),
+          new THREE.Vector3(el.x + el.w, el.y + el.h, 0),
+          new THREE.Vector3(el.x, el.y + el.h, 0),
+          new THREE.Vector3(el.x, el.y, 0)
+        ]);
+        const rectMesh = new THREE.Line(shape, lineMat);
+        this.group.add(rectMesh);
+      } else if (el.type === 'circle') {
+        const curve = new THREE.EllipseCurve(el.cx, el.cy, el.r, el.r, 0, 2 * Math.PI, false, 0);
+        const points = curve.getPoints(50);
+        const geom = new THREE.BufferGeometry().setFromPoints(points);
+        const circleMesh = new THREE.Line(geom, lineMat);
+        this.group.add(circleMesh);
+      }
+    });
+
+    if (this.plane === 'XY') {
+      this.group.rotation.x = 0;
+    } else if (this.plane === 'XZ') {
+      this.group.rotation.x = Math.PI / 2;
+    }
+  }
+
+  getShape() {
+    // Convert 2D elements to Three.js Shape for Extrusion Kernel
+    const shape = new THREE.Shape();
+    if (this.elements.length === 0) return null;
+
+    const first = this.elements[0];
+    if (first.type === 'rect') {
+      shape.moveTo(first.x, first.y);
+      shape.lineTo(first.x + first.w, first.y);
+      shape.lineTo(first.x + first.w, first.y + first.h);
+      shape.lineTo(first.x, first.y + first.h);
+      shape.closePath();
+    } else if (first.type === 'circle') {
+      shape.absarc(first.cx, first.cy, first.r, 0, Math.PI * 2, false);
+    } else if (first.type === 'line') {
+      shape.moveTo(first.x1, first.y1);
+      this.elements.forEach(l => {
+        if (l.type === 'line') shape.lineTo(l.x2, l.y2);
+      });
+      shape.closePath();
+    }
+    return shape;
+  }
+}
+
+/* ==========================================================================
+   4. GEOMETRY & CAD CSG KERNEL MANAGER
+   ========================================================================== */
+class GeometryManager {
+  constructor(scene) {
+    this.scene = scene;
+    this.bodies = [];
+    this.sketches = [];
+    this.material = new THREE.MeshStandardMaterial({
+      color: 0x90a4ae,
+      roughness: 0.3,
+      metalness: 0.2,
+      side: THREE.DoubleSide
+    });
+    this.selectedMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff9800,
+      roughness: 0.2,
+      metalness: 0.5
+    });
+  }
+
+  createBody(mesh, name = 'Body') {
+    const id = CADMath.generateGUID();
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData = { id, name, type: 'body' };
+
+    const bodyObj = { id, name, mesh, type: 'body' };
+    this.bodies.push(bodyObj);
+    this.scene.add(mesh);
+    app.uiManager.updateTree();
+    return bodyObj;
+  }
+
+  extrudeSketch(sketch, distance = 25) {
+    const shape = sketch.getShape();
+    if (!shape) {
+      app.uiManager.notify("Cannot extrude: Invalid or open sketch geometry", "error");
+      return null;
+    }
+
+    const extrudeSettings = { depth: distance, bevelEnabled: false };
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    
+    // Correct Extrude Orientation depending on Sketch Plane
+    if (sketch.plane === 'XY') {
+      geometry.rotateX(0);
+    } else if (sketch.plane === 'XZ') {
+      geometry.rotateX(Math.PI / 2);
+    }
+
+    const mesh = new THREE.Mesh(geometry, this.material.clone());
+    return this.createBody(mesh, `Extrude (${sketch.name})`);
+  }
+
+  performBoolean(bodyA, bodyB, operation = 'subtract') {
+    try {
+      if (!window.CSG) {
+        app.uiManager.notify("CSG Boolean Kernel loading...", "error");
+        return;
+      }
+
+      // Convert Three meshes to CSG Solids using three-csg-ts
+      const csgA = CSG.fromMesh(bodyA.mesh);
+      const csgB = CSG.fromMesh(bodyB.mesh);
+      let resultCSG;
+
+      if (operation === 'subtract') {
+        resultCSG = csgA.subtract(csgB);
+      } else if (operation === 'union') {
+        resultCSG = csgA.union(csgB);
+      } else if (operation === 'intersect') {
+        resultCSG = csgA.intersect(csgB);
+      }
+
+      const resultMesh = CSG.toMesh(resultCSG, bodyA.mesh.matrix, this.material.clone());
+
+      // Replace Body A mesh with calculated solid
+      this.removeBody(bodyA.id);
+      this.removeBody(bodyB.id);
+
+      this.createBody(resultMesh, `Boolean_${operation}`);
+      app.uiManager.notify(`Boolean ${operation} successful!`, "success");
+    } catch (err) {
+      app.uiManager.notify("Boolean Operation Failed: Non-manifold geometry", "error");
+      console.error(err);
+    }
+  }
+
+  removeBody(id) {
+    const idx = this.bodies.findIndex(b => b.id === id);
+    if (idx !== -1) {
+      this.scene.remove(this.bodies[idx].mesh);
+      this.bodies.splice(idx, 1);
+      app.uiManager.updateTree();
+    }
+  }
+}
+
+/* ==========================================================================
+   5. HISTORY & UNDO/REDO COMMAND SYSTEM
+   ========================================================================== */
+class HistoryManager {
+  constructor() {
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+
+  execute(command) {
+    command.do();
+    this.undoStack.push(command);
+    this.redoStack = []; // Reset redo on new action
+  }
+
+  undo() {
+    if (this.undoStack.length === 0) return;
+    const cmd = this.undoStack.pop();
+    cmd.undo();
+    this.redoStack.push(cmd);
+    app.uiManager.notify("Undo performed", "info");
+  }
+
+  redo() {
+    if (this.redoStack.length === 0) return;
+    const cmd = this.redoStack.pop();
+    cmd.do();
+    this.undoStack.push(cmd);
+    app.uiManager.notify("Redo performed", "info");
+  }
+}
+
+/* ==========================================================================
+   6. FILE SYSTEM MANAGER (JSON & STL)
+   ========================================================================== */
+class FileManager {
+  newProject() {
+    if (confirm("Create new project? Any unsaved changes will be lost.")) {
+      location.reload();
+    }
+  }
+
+  saveJSON() {
+    const projectData = {
+      version: 1,
+      appName: "ZEN CAD",
+      units: ZEN.units,
+      bodiesCount: app.geometryManager.bodies.length,
+      sketchesCount: app.geometryManager.sketches.length
+    };
+
+    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'Project_Model.zencad';
+    link.click();
+    app.uiManager.notify("Project saved successfully", "success");
+  }
+
+  exportSTL() {
+    if (app.geometryManager.bodies.length === 0) {
+      app.uiManager.notify("No 3D bodies available to export", "error");
+      return;
+    }
+
+    let stlString = "solid ZEN_CAD_Export\n";
+    app.geometryManager.bodies.forEach(b => {
+      const geom = b.mesh.geometry.clone();
+      geom.computeVertexNormals();
+      const pos = geom.attributes.position;
+
+      for (let i = 0; i < pos.count; i += 3) {
+        stlString += `  facet normal 0 0 0\n    outer loop\n`;
+        stlString += `      vertex ${pos.getX(i)} ${pos.getY(i)} ${pos.getZ(i)}\n`;
+        stlString += `      vertex ${pos.getX(i+1)} ${pos.getY(i+1)} ${pos.getZ(i+1)}\n`;
+        stlString += `      vertex ${pos.getX(i+2)} ${pos.getY(i+2)} ${pos.getZ(i+2)}\n`;
+        stlString += `    endloop\n  endfacet\n`;
+      }
+    });
+    stlString += "endsolid ZEN_CAD_Export\n";
+
+    const blob = new Blob([stlString], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'Model_Export.stl';
+    link.click();
+    app.uiManager.notify("STL Model exported successfully!", "success");
+  }
+}
+
+/* ==========================================================================
+   7. UI / INTERFACE MANAGER
+   ========================================================================== */
+class UIManager {
+  constructor() {
+    this.treeContainer = document.getElementById('feature-tree');
+    this.propContainer = document.getElementById('properties-content');
+  }
+
+  updateTree() {
+    this.treeContainer.innerHTML = '';
+    
+    // Render Sketches in Tree
+    app.geometryManager.sketches.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'tree-item';
+      div.innerHTML = `<span><span class="tree-item-icon">✏️</span>${s.name}</span>`;
+      div.onclick = () => app.selectEntity(s);
+      this.treeContainer.appendChild(div);
+    });
+
+    // Render Bodies in Tree
+    app.geometryManager.bodies.forEach(b => {
+      const div = document.createElement('div');
+      div.className = `tree-item ${app.selectedObject === b ? 'selected' : ''}`;
+      div.innerHTML = `<span><span class="tree-item-icon">🧊</span>${b.name}</span>`;
+      div.onclick = () => app.selectEntity(b);
+      this.treeContainer.appendChild(div);
+    });
+  }
+
+  showProperties(obj) {
+    if (!obj) {
+      this.propContainer.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 20px 0;">No Object Selected</div>`;
+      return;
+    }
+
+    if (obj.type === 'body') {
+      const pos = obj.mesh.position;
+      this.propContainer.innerHTML = `
+        <div style="font-weight:600; margin-bottom:8px;">Body Parameters</div>
+        <label>Name</label>
+        <input type="text" value="${obj.name}" onchange="app.selectedObject.name = this.value; app.uiManager.updateTree();">
+        
+        <div style="margin-top:10px; font-weight:600;">Position (mm)</div>
+        <div style="display:flex; gap:4px; margin-top:4px;">
+          <input type="number" value="${pos.x}" onchange="app.selectedObject.mesh.position.x = parseFloat(this.value)">
+          <input type="number" value="${pos.y}" onchange="app.selectedObject.mesh.position.y = parseFloat(this.value)">
+          <input type="number" value="${pos.z}" onchange="app.selectedObject.mesh.position.z = parseFloat(this.value)">
+        </div>
+
+        <div style="margin-top:16px;">
+          <button class="btn btn-danger" style="width:100%" onclick="app.geometryManager.removeBody('${obj.id}'); app.selectEntity(null);">Delete Body</button>
+        </div>
+      `;
+    }
+  }
+
+  notify(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerText = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+  }
+}
+
+/* ==========================================================================
+   8. ZEN CAD MAIN APPLICATION CONTROLLER
+   ========================================================================== */
+class CADApp {
+  constructor() {
+    this.viewport = new ViewportManager('canvas3d');
+    this.geometryManager = new GeometryManager(this.viewport.scene);
+    this.historyManager = new HistoryManager();
+    this.fileManager = new FileManager();
+    this.uiManager = new UIManager();
+
+    this.activeTool = 'select';
+    this.activeSketch = null;
+    this.selectedObject = null;
+
+    this.setupInteractions();
+    this.setupKeyboardShortcuts();
+  }
+
+  setTool(tool) {
+    this.activeTool = tool;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById(`tool-${tool}`);
+    if(btn) btn.classList.add('active');
+
+    document.getElementById('status-tool').innerText = `Tool: ${tool.toUpperCase()}`;
+
+    // Tool contextual execution
+    if (tool === 'sketch') {
+      this.startSketch();
+    } else if (tool === 'extrude') {
+      this.extrudeDialog();
+    } else if (tool === 'boolean') {
+      this.booleanDialog();
+    }
+  }
+
+  startSketch() {
+    const plane = prompt("Enter Sketch Plane (XY or XZ):", "XY");
+    if (!plane) return;
+
+    this.activeSketch = new Sketch(null, `Sketch ${this.geometryManager.sketches.length + 1}`, plane.toUpperCase());
+    this.geometryManager.sketches.push(this.activeSketch);
+    this.viewport.scene.add(this.activeSketch.group);
+
+    // Orient view normal to sketch
+    this.viewport.setStandardView(plane.toLowerCase() === 'xz' ? 'top' : 'front');
+
+    // Enable sketch toolbar items
+    document.getElementById('tool-line').classList.remove('disabled');
+    document.getElementById('tool-rect').classList.remove('disabled');
+    document.getElementById('tool-circle').classList.remove('disabled');
+
+    this.uiManager.notify(`Sketch started on ${plane.toUpperCase()} Plane. Draw 2D Profile!`, "success");
+    this.uiManager.updateTree();
+  }
+
+  setupInteractions() {
+    let isDrawing = false;
+    let startPt = null;
+
+    this.viewport.canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return; // Only Left Click
+
+      const worldPos = this.viewport.getWorldIntersectionPlane();
+      if (!worldPos) return;
+
+      const snappedX = CADMath.snap(worldPos.x, ZEN.gridSize);
+      const snappedZ = CADMath.snap(worldPos.z, ZEN.gridSize);
+
+      if (this.activeSketch && ['rect', 'circle', 'line'].includes(this.activeTool)) {
+        if (!isDrawing) {
+          isDrawing = true;
+          startPt = { x: snappedX, y: snappedZ };
+        } else {
+          isDrawing = false;
+          if (this.activeTool === 'rect') {
+            this.activeSketch.addEntity({
+              type: 'rect',
+              x: Math.min(startPt.x, snappedX),
+              y: Math.min(startPt.y, snappedZ),
+              w: Math.abs(snappedX - startPt.x),
+              h: Math.abs(snappedZ - startPt.y)
             });
-
-            window.addEventListener('resize', onWindowResize);
-            addCube();
+          } else if (this.activeTool === 'circle') {
+            const radius = Math.hypot(snappedX - startPt.x, snappedZ - startPt.y);
+            this.activeSketch.addEntity({
+              type: 'circle',
+              cx: startPt.x,
+              cy: startPt.y,
+              r: radius
+            });
+          } else if (this.activeTool === 'line') {
+            this.activeSketch.addEntity({
+              type: 'line',
+              x1: startPt.x,
+              y1: startPt.y,
+              x2: snappedX,
+              y2: snappedZ
+            });
+          }
+          this.uiManager.notify("2D Geometry added to active sketch", "info");
         }
+      } else if (this.activeTool === 'select') {
+        // Selection Logic via Raycasting
+        this.viewport.raycaster.setFromCamera(this.viewport.mouse, this.viewport.camera);
+        const intersects = this.viewport.raycaster.intersectObjects(this.geometryManager.bodies.map(b => b.mesh));
 
-        // --- Standard Views ---
-        function setView(view) {
-            if (view === 'top') camera.position.set(0, 20, 0);
-            if (view === 'front') camera.position.set(0, 0, 20);
-            if (view === 'right') camera.position.set(20, 0, 0);
-            camera.lookAt(0, 0, 0);
+        if (intersects.length > 0) {
+          const hitMesh = intersects[0].object;
+          const foundBody = this.geometryManager.bodies.find(b => b.mesh === hitMesh);
+          this.selectEntity(foundBody);
+        } else {
+          this.selectEntity(null);
         }
+      }
+    });
+  }
 
-        // --- Distance Measurement Engine ---
-        function toggleMeasureMode() {
-            isMeasuring = !isMeasuring;
-            document.getElementById('mode-measure').classList.toggle('active', isMeasuring);
-            measurePoints = [];
-            if (measureLine) scene.remove(measureLine);
-        }
+  selectEntity(obj) {
+    // Un-highlight previous
+    if (this.selectedObject && this.selectedObject.type === 'body') {
+      this.selectedObject.mesh.material = this.geometryManager.material;
+    }
 
-        function handleMeasurementPoint(point) {
-            measurePoints.push(point);
-            if (measurePoints.length === 2) {
-                const p1 = measurePoints[0], p2 = measurePoints[1];
-                const distance = p1.distanceTo(p2).toFixed(2);
-                document.getElementById('measure-badge').innerText = `Distance: ${distance} mm`;
+    this.selectedObject = obj;
 
-                const geom = new THREE.BufferGeometry().setFromPoints([p1, p2]);
-                const mat = new THREE.LineBasicMaterial({ color: 0x60a5fa, linewidth: 3 });
-                if (measureLine) scene.remove(measureLine);
-                measureLine = new THREE.Line(geom, mat);
-                scene.add(measureLine);
+    if (obj && obj.type === 'body') {
+      obj.mesh.material = this.geometryManager.selectedMaterial;
+      document.getElementById('status-selection').innerText = `Selected: ${obj.name}`;
+    } else {
+      document.getElementById('status-selection').innerText = `Selected: None`;
+    }
 
-                measurePoints = []; // Reset for next reading
-            }
-        }
+    this.uiManager.showProperties(obj);
+    this.uiManager.updateTree();
+  }
 
-        // --- Precision Transformations UI Sync ---
-        function updateTransformUI() {
-            if (!selectedObject) return;
-            document.getElementById('pos-x').value = selectedObject.position.x.toFixed(2);
-            document.getElementById('pos-y').value = selectedObject.position.y.toFixed(2);
-            document.getElementById('pos-z').value = selectedObject.position.z.toFixed(2);
+  extrudeDialog() {
+    if (!this.activeSketch || this.activeSketch.elements.length === 0) {
+      this.uiManager.notify("Select or draw a valid 2D Sketch profile first!", "error");
+      return;
+    }
 
-            const box = new THREE.Box3().setFromObject(selectedObject);
-            const size = box.getSize(new THREE.Vector3());
-            document.getElementById('dim-x').value = size.x.toFixed(2);
-            document.getElementById('dim-y').value = size.y.toFixed(2);
-            document.getElementById('dim-z').value = size.z.toFixed(2);
-        }
+    const distStr = prompt("Enter Extrude Distance (mm):", "30");
+    if (!distStr) return;
+    const distance = parseFloat(distStr);
 
-        function applyTransformInput() {
-            if (!selectedObject) return;
-            selectedObject.position.x = parseFloat(document.getElementById('pos-x').value) || 0;
-            selectedObject.position.y = parseFloat(document.getElementById('pos-y').value) || 0;
-            selectedObject.position.z = parseFloat(document.getElementById('pos-z').value) || 0;
-        }
+    const body = this.geometryManager.extrudeSketch(this.activeSketch, distance);
+    if (body) {
+      this.uiManager.notify(`Extruded profile by ${distance}mm`, "success");
+      this.setTool('select');
+    }
+  }
 
-        // --- Solid CSG Engine (Boolean Extrude Cut / Join) ---
-        function performCSG(operation) {
-            if (selectedObjectsGroup.length < 2) {
-                alert("Hold SHIFT and select 2 overlapping objects to perform a Boolean operation.");
-                return;
-            }
-            const meshA = selectedObjectsGroup[0];
-            const meshB = selectedObjectsGroup[1];
+  booleanDialog() {
+    if (this.geometryManager.bodies.length < 2) {
+      this.uiManager.notify("At least 2 Solid Bodies required for Boolean CSG!", "error");
+      return;
+    }
 
-            try {
-                const csgA = THREEloaderCSG.CSG.fromMesh(meshA);
-                const csgB = THREEloaderCSG.CSG.fromMesh(meshB);
-                let resultCSG;
+    const bodyA = this.geometryManager.bodies[0];
+    const bodyB = this.geometryManager.bodies[1];
+    
+    const op = prompt("Enter CSG Boolean Operation ('subtract', 'union', 'intersect'):", "subtract");
+    if (op) {
+      this.geometryManager.performBoolean(bodyA, bodyB, op.toLowerCase());
+    }
+  }
 
-                if (operation === 'subtract') resultCSG = csgA.subtract(csgB);
-                if (operation === 'union') resultCSG = csgA.union(csgB);
+  showDemoModel() {
+    // Generates a complex multi-feature mechanical CAD demo model programmatically
+    const baseSketch = new Sketch(null, 'Demo Base Sketch', 'XY');
+    baseSketch.addEntity({ type: 'rect', x: -40, y: -40, w: 80, h: 80 });
+    const baseBody = this.geometryManager.extrudeSketch(baseSketch, 15);
 
-                const resultMesh = THREEloaderCSG.CSG.toMesh(resultCSG, meshA.matrix, meshA.material);
-                
-                scene.remove(meshA); scene.remove(meshB);
-                objects.splice(objects.indexOf(meshA), 1);
-                objects.splice(objects.indexOf(meshB), 1);
+    const cylSketch = new Sketch(null, 'Demo Cyl Sketch', 'XY');
+    cylSketch.addEntity({ type: 'circle', cx: 0, cy: 0, r: 25 });
+    const cylBody = this.geometryManager.extrudeSketch(cylSketch, 50);
 
-                scene.add(resultMesh);
-                objects.push(resultMesh);
-                selectedObjectsGroup = [];
-                selectObject(resultMesh);
-            } catch (err) {
-                alert("CSG Boolean failed on geometry. Make sure objects overlap completely.");
-            }
-        }
+    this.uiManager.notify("Demo Parametric Components Generated!", "success");
+    this.viewport.fitAll();
+  }
 
-        // --- Scene Management & Primitives ---
-        function createMesh(geometry) {
-            const mat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.3, metalness: 0.1 });
-            const mesh = new THREE.Mesh(geometry, mat);
-            mesh.position.y = 1;
-            scene.add(mesh);
-            objects.push(mesh);
-            selectObject(mesh);
-        }
+  startTutorial() {
+    alert("ZEN CAD QUICK START TUTORIAL:\n\n1. Click 'Sketch' (S) -> Type 'XY'.\n2. Select 'Rectangle' -> Click 2 points in viewport to draw.\n3. Click 'Extrude' (E) -> Enter height (e.g., 30mm).\n4. Click 'Insert' at top bar for instant mechanical demo model!");
+  }
 
-        function addCube() { createMesh(new THREE.BoxGeometry(2, 2, 2)); }
-        function addCylinder() { createMesh(new THREE.CylinderGeometry(1, 1, 3, 32)); }
+  openSettings() {
+    alert("ZEN CAD ENGINE SETTINGS:\n\nUnits: Millimeters (mm)\nKernel: WebGL CSG Solid Geometry\nGrid Snap: 10mm");
+  }
 
-        function selectObject(obj) {
-            selectedObject = obj;
-            if (obj) { transformControls.attach(obj); updateTransformUI(); }
-            else { transformControls.detach(); }
-        }
+  setupKeyboardShortcuts() {
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return; // Ignore input typing
 
-        function toggleMultiSelect(obj) {
-            const idx = selectedObjectsGroup.indexOf(obj);
-            if (idx > -1) selectedObjectsGroup.splice(idx, 1);
-            else selectedObjectsGroup.push(obj);
-            selectObject(obj);
-        }
+      if (e.key === 'Escape') this.setTool('select');
+      if (e.key === 's' || e.key === 'S') this.setTool('sketch');
+      if (e.key === 'e' || e.key === 'E') this.setTool('extrude');
+      if (e.key === 'm' || e.key === 'M') this.setTool('move');
+      if (e.ctrlKey && e.key === 'z') this.historyManager.undo();
+      if (e.ctrlKey && e.key === 'y') this.historyManager.redo();
+    });
+  }
+}
 
-        function deleteSelected() {
-            if (!selectedObject) return;
-            transformControls.detach();
-            scene.remove(selectedObject);
-            objects.splice(objects.indexOf(selectedObject), 1);
-            selectedObject = null;
-        }
-
-        function setTransformMode(m) {
-            transformControls.setMode(m);
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`mode-${m}`).classList.add('active');
-        }
-
-        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-        function onWindowResize() {
-            const vp = document.getElementById('viewport');
-            camera.aspect = vp.clientWidth / vp.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(vp.clientWidth, vp.clientHeight);
-        }
-        function animate() { requestAnimationFrame(animate); orbitControls.update(); renderer.render(scene, camera); }
-        function exportSTL() {
-            const exporter = new THREE.STLExporter();
-            const blob = new Blob([exporter.parse(selectedObject || scene, { binary: true })], { type: 'application/octet-stream' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cad_model.stl'; a.click();
-        }
-    </script>
+// Global Instantialization on DOM Ready
+let app;
+window.addEventListener('DOMContentLoaded', () => {
+  app = new CADApp();
+});
+</script>
 </body>
 </html>
