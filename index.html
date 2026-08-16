@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZEN CAD - Parametric 3D Modeling Engine</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ZEN CAD - Mobile Friendly 3D Modeling Engine</title>
   
   <!-- CDNs for 3D Viewport, Math & Constructive Solid Geometry (CSG) Kernel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -12,7 +12,7 @@
 
   <style>
     /* ==========================================================================
-       ZEN CAD PROFESSIONAL DARK THEME STYLESHEET
+       ZEN CAD PROFESSIONAL DARK THEME & MOBILE RESPONSIVE STYLESHEET
        ========================================================================== */
     :root {
       --bg-darker: #121316;
@@ -32,85 +32,96 @@
       --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
     body, html { width: 100%; height: 100%; overflow: hidden; font-family: var(--font-family); background-color: var(--bg-darker); color: var(--text-main); font-size: 12px; }
 
-    #app-container { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
+    #app-container { display: flex; flex-direction: column; width: 100vw; height: 100vh; height: 100dvh; }
 
     /* TOP BAR */
-    #top-bar { height: 40px; background-color: var(--bg-dark); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; z-index: 10; }
-    .logo-container { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; letter-spacing: 1px; color: #fff; }
-    .logo-icon { width: 20px; height: 20px; fill: var(--accent); }
+    #top-bar { height: 44px; background-color: var(--bg-dark); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 8px; z-index: 10; shrink: 0; }
+    .logo-container { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; letter-spacing: 0.5px; color: #fff; }
+    .logo-icon { width: 18px; height: 18px; fill: var(--accent); }
     .menu-bar { display: flex; gap: 2px; }
-    .menu-item { padding: 4px 10px; border-radius: 4px; cursor: pointer; color: var(--text-muted); }
+    .menu-item { padding: 6px 8px; border-radius: 4px; cursor: pointer; color: var(--text-muted); font-size: 11px; }
     .menu-item:hover { background-color: var(--bg-hover); color: var(--text-main); }
-    .project-title { font-weight: 600; color: var(--text-muted); }
-    .top-actions { display: flex; gap: 6px; align-items: center; }
+    .project-title { font-weight: 600; color: var(--text-muted); display: none; }
+    .top-actions { display: flex; gap: 4px; align-items: center; }
 
     /* BUTTONS & INPUTS */
-    .btn { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-main); padding: 5px 12px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; transition: all 0.15s ease; }
-    .btn:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+    .btn { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 10px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; transition: all 0.15s ease; min-height: 32px; }
+    .btn:hover, .btn:active { background: var(--bg-hover); border-color: var(--text-muted); }
     .btn-primary { background: var(--accent); border-color: var(--accent-hover); color: #fff; }
-    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:hover, .btn-primary:active { background: var(--accent-hover); }
     .btn-danger { background: #5a1e1e; border-color: var(--highlight-red); color: #fff; }
-    .btn-icon { padding: 5px; width: 28px; height: 28px; justify-content: center; }
+    .btn-icon { padding: 6px; width: 34px; height: 34px; justify-content: center; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    input[type="text"], input[type="number"], select { background: var(--bg-darker); border: 1px solid var(--border-color); color: var(--text-main); padding: 4px 8px; border-radius: 3px; font-size: 12px; width: 100%; }
+    input[type="text"], input[type="number"], select { background: var(--bg-darker); border: 1px solid var(--border-color); color: var(--text-main); padding: 6px 8px; border-radius: 3px; font-size: 12px; width: 100%; }
     input:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
 
     /* MAIN LAYOUT */
-    #main-layout { display: flex; flex: 1; position: relative; overflow: hidden; }
+    #main-layout { display: flex; flex: 1; position: relative; overflow: hidden; flex-direction: row; }
 
-    /* LEFT TOOLBAR */
-    #left-toolbar { width: 50px; background: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px; z-index: 5; }
-    .tool-btn { width: 38px; height: 38px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: transparent; border: none; fill: var(--text-muted); position: relative; }
-    .tool-btn:hover { background: var(--bg-hover); fill: var(--text-main); }
+    /* LEFT TOOLBAR (SCROLLABLE ON MOBILE) */
+    #left-toolbar { width: 48px; background: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; padding: 6px 0; gap: 6px; z-index: 5; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; shrink: 0; }
+    .tool-btn { width: 38px; height: 38px; min-height: 38px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: transparent; border: none; fill: var(--text-muted); position: relative; shrink: 0; }
+    .tool-btn:hover, .tool-btn:active { background: var(--bg-hover); fill: var(--text-main); }
     .tool-btn.active { background: var(--accent); fill: #fff; }
     .tool-btn.disabled { opacity: 0.3; cursor: not-allowed; }
-    .tool-separator { width: 26px; height: 1px; background: var(--border-color); margin: 4px 0; }
+    .tool-separator { width: 24px; height: 1px; background: var(--border-color); margin: 2px 0; shrink: 0; }
 
     /* VIEWPORT */
-    #viewport-container { flex: 1; position: relative; background: radial-gradient(circle at center, #262936 0%, #111217 100%); }
-    #canvas3d { width: 100%; height: 100%; display: block; }
+    #viewport-container { flex: 1; position: relative; background: radial-gradient(circle at center, #262936 0%, #111217 100%); touch-action: none; }
+    #canvas3d { width: 100%; height: 100%; display: block; touch-action: none; }
     
     /* NAV CUBE & VIEWPORT CONTROLS */
-    #nav-cube-container { position: absolute; top: 12px; right: 12px; width: 90px; height: 90px; pointer-events: auto; }
-    .viewport-overlay-controls { position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; z-index: 4; }
+    .viewport-overlay-controls { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; z-index: 4; flex-wrap: wrap; max-width: calc(100% - 16px); }
+    .viewport-overlay-controls .btn { padding: 4px 8px; min-height: 28px; font-size: 10px; background: rgba(34, 37, 48, 0.85); backdrop-filter: blur(4px); }
 
-    /* RIGHT PROPERTIES PANEL */
-    #right-panel { width: 280px; background: var(--bg-panel); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 5; }
+    /* RIGHT PROPERTIES PANEL (SLIDE IN ON MOBILE) */
+    #right-panel { width: 240px; background: var(--bg-panel); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 5; transition: transform 0.25s ease; }
     .panel-section { border-bottom: 1px solid var(--border-color); }
-    .panel-header { padding: 10px 12px; background: var(--bg-dark); font-weight: 600; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-    .panel-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .panel-header { padding: 8px 10px; background: var(--bg-dark); font-weight: 600; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 11px; }
+    .panel-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 
     /* TREE VIEW */
-    .tree-view { overflow-y: auto; max-height: 250px; font-family: monospace; }
-    .tree-item { padding: 4px 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border-radius: 3px; }
-    .tree-item:hover { background: var(--bg-hover); }
+    .tree-view { overflow-y: auto; max-height: 180px; font-family: monospace; }
+    .tree-item { padding: 6px 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border-radius: 3px; font-size: 11px; }
+    .tree-item:hover, .tree-item:active { background: var(--bg-hover); }
     .tree-item.selected { background: rgba(0, 122, 204, 0.3); border-left: 3px solid var(--accent); }
     .tree-item-icon { margin-right: 6px; opacity: 0.7; }
 
     /* BOTTOM STATUS BAR */
-    #status-bar { height: 26px; background: var(--bg-dark); border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: 11px; color: var(--text-muted); z-index: 10; }
-    .status-group { display: flex; gap: 16px; align-items: center; }
-
-    /* DIALOG MODALS */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
-    .modal-card { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; width: 400px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 16px; }
-    .modal-title { font-size: 16px; font-weight: 600; color: #fff; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    #status-bar { height: 24px; background: var(--bg-dark); border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 8px; font-size: 10px; color: var(--text-muted); z-index: 10; shrink: 0; }
+    .status-group { display: flex; gap: 10px; align-items: center; }
 
     /* FLOATING NOTIFICATION BANNER */
-    #toast-container { position: absolute; bottom: 36px; right: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
-    .toast { background: var(--bg-dark); border: 1px solid var(--border-color); border-left: 4px solid var(--accent); padding: 10px 14px; border-radius: 4px; font-size: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); animation: slideIn 0.2s ease; }
+    #toast-container { position: absolute; bottom: 32px; right: 8px; left: 8px; display: flex; flex-direction: column; gap: 6px; z-index: 50; pointer-events: none; }
+    .toast { background: var(--bg-dark); border: 1px solid var(--border-color); border-left: 4px solid var(--accent); padding: 8px 12px; border-radius: 4px; font-size: 11px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); animation: slideIn 0.2s ease; pointer-events: auto; }
     .toast.error { border-left-color: var(--highlight-red); }
     .toast.success { border-left-color: var(--highlight-green); }
 
-    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @keyframes slideIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-    /* TOOLTIP */
-    [data-tooltip] { position: relative; }
-    [data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 8px; background: var(--bg-darker); border: 1px solid var(--border-color); color: #fff; padding: 4px 8px; border-radius: 4px; white-space: nowrap; font-size: 11px; z-index: 99; pointer-events: none; }
+    /* RESPONSIVE LAYOUT BREAKPOINTS FOR SMARTPHONES */
+    @media (min-width: 768px) {
+      #top-bar { padding: 0 12px; height: 40px; }
+      .logo-container { font-size: 14px; gap: 8px; }
+      .logo-icon { width: 20px; height: 20px; }
+      .project-title { display: block; }
+      .menu-item { font-size: 12px; padding: 4px 10px; }
+      #left-toolbar { width: 50px; padding: 8px 0; gap: 4px; }
+      #right-panel { width: 280px; }
+      .viewport-overlay-controls .btn { padding: 5px 10px; font-size: 11px; min-height: 32px; }
+    }
+
+    @media (max-width: 600px) {
+      .menu-bar { display: none; } /* Hide redundant header menu items on narrow mobile phones */
+      #right-panel { position: absolute; right: 0; top: 0; bottom: 0; transform: translateX(100%); width: 220px; box-shadow: -5px 0 15px rgba(0,0,0,0.5); }
+      #right-panel.open { transform: translateX(0); }
+      #toggle-panel-btn { display: inline-flex !important; }
+    }
+    
+    #toggle-panel-btn { display: none; }
   </style>
 </head>
 <body>
@@ -135,14 +146,22 @@
     <div class="project-title" id="project-title-display">Untitled Project.zencad</div>
 
     <div class="top-actions">
-      <button class="btn btn-icon" data-tooltip="Undo (Ctrl+Z)" onclick="app.historyManager.undo()">
+      <!-- FULLSCREEN TOGGLE BUTTON FOR MOBILE & DESKTOP -->
+      <button class="btn btn-icon" id="btn-fullscreen" title="Toggle Fullscreen Mode" onclick="app.toggleFullscreen()">
+        <svg id="icon-fullscreen" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+      </button>
+
+      <button class="btn btn-icon" title="Undo (Ctrl+Z)" onclick="app.historyManager.undo()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
       </button>
-      <button class="btn btn-icon" data-tooltip="Redo (Ctrl+Y)" onclick="app.historyManager.redo()">
+      <button class="btn btn-icon" title="Redo (Ctrl+Y)" onclick="app.historyManager.redo()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22l2.37.78C4.95 12.81 7.96 10.5 11.5 10.5c1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
       </button>
       <button class="btn btn-primary" onclick="app.fileManager.saveJSON()">Save</button>
-      <button class="btn" onclick="app.fileManager.exportSTL()">Export STL</button>
+      <button class="btn" onclick="app.fileManager.exportSTL()">STL</button>
+      <button class="btn btn-icon" id="toggle-panel-btn" onclick="app.toggleMobilePanel()" title="Toggle Properties Panel">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+      </button>
     </div>
   </header>
 
@@ -150,50 +169,41 @@
   <div id="main-layout">
     <!-- LEFT TOOLBAR -->
     <aside id="left-toolbar">
-      <button class="tool-btn active" id="tool-select" data-tooltip="Select Entity (Esc)" onclick="app.setTool('select')">
+      <button class="tool-btn active" id="tool-select" title="Select Entity (Esc)" onclick="app.setTool('select')">
         <svg width="20" height="20" viewBox="0 0 24 24"><path d="M7 2l12 11.2-5.8.5 3.3 7.3-2.2 1-3.2-7.4L7 18.5V2z"/></svg>
       </button>
-      <button class="tool-btn" id="tool-sketch" data-tooltip="Create Sketch (S)" onclick="app.setTool('sketch')">
+      <button class="tool-btn" id="tool-sketch" title="Create Sketch (S)" onclick="app.setTool('sketch')">
         <svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
       </button>
       
       <div class="tool-separator"></div>
 
       <!-- SKETCH SUB-TOOLS -->
-      <button class="tool-btn disabled" id="tool-line" data-tooltip="Line (L)" onclick="app.setTool('line')">
+      <button class="tool-btn disabled" id="tool-line" title="Line (L)" onclick="app.setTool('line')">
         <svg width="20" height="20" viewBox="0 0 24 24"><path d="M3.5 18.5l17-13M5 19a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm17-14a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" stroke="currentColor" stroke-width="2"/></svg>
       </button>
-      <button class="tool-btn disabled" id="tool-rect" data-tooltip="Rectangle (R)" onclick="app.setTool('rect')">
+      <button class="tool-btn disabled" id="tool-rect" title="Rectangle (R)" onclick="app.setTool('rect')">
         <svg width="20" height="20" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" fill="none" stroke="currentColor" stroke-width="2"/></svg>
       </button>
-      <button class="tool-btn disabled" id="tool-circle" data-tooltip="Circle (C)" onclick="app.setTool('circle')">
+      <button class="tool-btn disabled" id="tool-circle" title="Circle (C)" onclick="app.setTool('circle')">
         <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
       </button>
 
       <div class="tool-separator"></div>
 
       <!-- 3D FEATURES -->
-      <button class="tool-btn" id="tool-extrude" data-tooltip="Extrude Profile (E)" onclick="app.setTool('extrude')">
-        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M19 6h-2c0-2.21-1.79-4-4-4H5c-2.21 0-4 1.79-4 4v8c0 2.21 1.79 4 4 4h2c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V10c0-2.21-1.79-4-4-4zM5 16c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v2H9c-2.21 0-4 1.79-4 4v4H5zm14 2c0 1.1-.9 2-2 2h-8c-1.1 0-2-.9-2-2v-8c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v8z"/></svg>
+      <button class="tool-btn" id="tool-extrude" title="Extrude Profile (E)" onclick="app.setTool('extrude')">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M19 6h-2c0-2.21-1.79-4-4-4H5c-2.21 0-4 1.79-4 4v8c0 2.21 1.79 4 4 4h2c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V10c0-2.21-1.79-4-4-4zM5 16c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v2H9c-2.21 0-4 1.79-4 4v4H5zm14 2c0 1.1-.9 2-2 2h-8c-1.1 0-2-.9-2-2v-8c0-1.1-2-.9-2-2h8c1.1 0 2 .9 2 2v8z"/></svg>
       </button>
-      <button class="tool-btn" id="tool-revolve" data-tooltip="Revolve Profile" onclick="app.setTool('revolve')">
-        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12A10 10 0 0 0 12 22A10 10 0 0 0 22 12A10 10 0 0 0 12 2M12 4A8 8 0 0 1 20 12A8 8 0 0 1 12 20V4Z"/></svg>
-      </button>
-      <button class="tool-btn" id="tool-boolean" data-tooltip="Boolean Operations" onclick="app.setTool('boolean')">
+      <button class="tool-btn" id="tool-boolean" title="Boolean Operations" onclick="app.setTool('boolean')">
         <svg width="20" height="20" viewBox="0 0 24 24"><path d="M15 4H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 12H5V6h10v10zM9 2h10c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2h-2v-2h2V4H9v2H7V4c0-1.1.9-2 2-2z"/></svg>
-      </button>
-      <button class="tool-btn" id="tool-fillet" data-tooltip="Fillet Edge" onclick="app.setTool('fillet')">
-        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M4 4v16h16v-4C11.16 16 8 12.84 8 4H4z"/></svg>
       </button>
 
       <div class="tool-separator"></div>
 
       <!-- UTILITIES -->
-      <button class="tool-btn" id="tool-move" data-tooltip="Transform Geometry (M)" onclick="app.setTool('move')">
+      <button class="tool-btn" id="tool-move" title="Transform Geometry (M)" onclick="app.setTool('move')">
         <svg width="20" height="20" viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
-      </button>
-      <button class="tool-btn" id="tool-measure" data-tooltip="Measure Geometry" onclick="app.setTool('measure')">
-        <svg width="20" height="20" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h2v4h2V5h2v2h2V5h2v4h2V5h2v14z"/></svg>
       </button>
     </aside>
 
@@ -204,7 +214,8 @@
         <button class="btn" onclick="app.viewport.setStandardView('top')">Top</button>
         <button class="btn" onclick="app.viewport.setStandardView('front')">Front</button>
         <button class="btn" onclick="app.viewport.setStandardView('right')">Right</button>
-        <button class="btn" onclick="app.viewport.fitAll()">Fit All</button>
+        <button class="btn" onclick="app.viewport.fitAll()">Fit</button>
+        <button class="btn" onclick="app.showDemoModel()">Demo</button>
       </div>
       <canvas id="canvas3d"></canvas>
     </main>
@@ -246,8 +257,6 @@
     </div>
     <div class="status-group">
       <span id="status-selection">Selected: None</span>
-      <span>Units: mm</span>
-      <span>Grid: 10mm [SNAP]</span>
     </div>
   </footer>
 </div>
@@ -260,12 +269,9 @@
      ========================================================================== -->
 <script>
 /**
- * ZEN CAD - Core Engine Architecture
- * Direct vanilla JS object modules managing CAD Parametric Data, CSG Geometry Kernel,
- * 3D Viewport Rendering, Interactive Tools, and UI state.
+ * ZEN CAD - Core Engine Architecture with Mobile & Touch Optimizations
  */
 
-// Global Application Core Namespace
 const ZEN = {
   units: 'mm',
   gridSize: 10,
@@ -310,10 +316,14 @@ class ViewportManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
 
-    // Controls
+    // Orbit Controls with Touch Gesture Optimizations
     this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
+    this.controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN
+    };
 
     // Raycasting & Interaction Selection Setup
     this.raycaster = new THREE.Raycaster();
@@ -342,30 +352,35 @@ class ViewportManager {
   }
 
   setupHelpers() {
-    // Grid Helper
     this.grid = new THREE.GridHelper(500, 50, 0x007acc, 0x3a3f52);
     this.grid.position.y = -0.01;
     this.scene.add(this.grid);
 
-    // Axis Helper
     this.axes = new THREE.AxesHelper(30);
     this.scene.add(this.axes);
   }
 
   bindEvents() {
-    window.addEventListener('resize', () => this.onWindowResize());
+    const handleResize = () => this.onWindowResize();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', () => setTimeout(handleResize, 200));
 
-    this.canvas.addEventListener('mousemove', (e) => {
+    const updateCoords = (clientX, clientY) => {
       const rect = this.canvas.getBoundingClientRect();
-      this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
       
       const worldPos = this.getWorldIntersectionPlane();
       if (worldPos) {
         document.getElementById('status-coords').innerText = 
-          `X: ${CADMath.formatNum(worldPos.x)} Y: ${CADMath.formatNum(worldPos.y)} Z: ${CADMath.formatNum(worldPos.z)}`;
+          `X: ${CADMath.formatNum(worldPos.x)} Y: ${CADMath.formatNum(worldPos.z)}`;
       }
-    });
+    };
+
+    this.canvas.addEventListener('mousemove', (e) => updateCoords(e.clientX, e.clientY));
+    this.canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) updateCoords(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
   }
 
   getWorldIntersectionPlane() {
@@ -423,7 +438,7 @@ class Sketch {
     this.id = id || CADMath.generateGUID();
     this.name = name || 'Sketch 1';
     this.plane = plane;
-    this.elements = []; // Lines, Circles, Rectangles
+    this.elements = [];
     this.group = new THREE.Group();
   }
 
@@ -433,7 +448,6 @@ class Sketch {
   }
 
   rebuildMesh() {
-    // Clear old renders
     while(this.group.children.length > 0){ 
       this.group.remove(this.group.children[0]); 
     }
@@ -475,7 +489,6 @@ class Sketch {
   }
 
   getShape() {
-    // Convert 2D elements to Three.js Shape for Extrusion Kernel
     const shape = new THREE.Shape();
     if (this.elements.length === 0) return null;
 
@@ -543,7 +556,6 @@ class GeometryManager {
     const extrudeSettings = { depth: distance, bevelEnabled: false };
     const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
     
-    // Correct Extrude Orientation depending on Sketch Plane
     if (sketch.plane === 'XY') {
       geometry.rotateX(0);
     } else if (sketch.plane === 'XZ') {
@@ -561,7 +573,6 @@ class GeometryManager {
         return;
       }
 
-      // Convert Three meshes to CSG Solids using three-csg-ts
       const csgA = CSG.fromMesh(bodyA.mesh);
       const csgB = CSG.fromMesh(bodyB.mesh);
       let resultCSG;
@@ -576,7 +587,6 @@ class GeometryManager {
 
       const resultMesh = CSG.toMesh(resultCSG, bodyA.mesh.matrix, this.material.clone());
 
-      // Replace Body A mesh with calculated solid
       this.removeBody(bodyA.id);
       this.removeBody(bodyB.id);
 
@@ -610,7 +620,7 @@ class HistoryManager {
   execute(command) {
     command.do();
     this.undoStack.push(command);
-    this.redoStack = []; // Reset redo on new action
+    this.redoStack = [];
   }
 
   undo() {
@@ -631,7 +641,7 @@ class HistoryManager {
 }
 
 /* ==========================================================================
-   6. FILE SYSTEM MANAGER (JSON & STL)
+   6. FILE SYSTEM MANAGER
    ========================================================================== */
 class FileManager {
   newProject() {
@@ -700,7 +710,6 @@ class UIManager {
   updateTree() {
     this.treeContainer.innerHTML = '';
     
-    // Render Sketches in Tree
     app.geometryManager.sketches.forEach(s => {
       const div = document.createElement('div');
       div.className = 'tree-item';
@@ -709,7 +718,6 @@ class UIManager {
       this.treeContainer.appendChild(div);
     });
 
-    // Render Bodies in Tree
     app.geometryManager.bodies.forEach(b => {
       const div = document.createElement('div');
       div.className = `tree-item ${app.selectedObject === b ? 'selected' : ''}`;
@@ -773,6 +781,46 @@ class CADApp {
 
     this.setupInteractions();
     this.setupKeyboardShortcuts();
+    this.setupFullscreenListener();
+  }
+
+  toggleFullscreen() {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      const docEl = document.documentElement;
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen();
+      } else if (docEl.webkitRequestFullscreen) { /* Safari & iOS Mobile */
+        docEl.webkitRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+  }
+
+  setupFullscreenListener() {
+    const updateIcon = () => {
+      const icon = document.getElementById('icon-fullscreen');
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        // Exit Fullscreen Icon
+        icon.innerHTML = '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>';
+      } else {
+        // Enter Fullscreen Icon
+        icon.innerHTML = '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
+      }
+      setTimeout(() => this.viewport.onWindowResize(), 150);
+    };
+
+    document.addEventListener('fullscreenchange', updateIcon);
+    document.addEventListener('webkitfullscreenchange', updateIcon);
+  }
+
+  toggleMobilePanel() {
+    const panel = document.getElementById('right-panel');
+    panel.classList.toggle('open');
   }
 
   setTool(tool) {
@@ -783,7 +831,6 @@ class CADApp {
 
     document.getElementById('status-tool').innerText = `Tool: ${tool.toUpperCase()}`;
 
-    // Tool contextual execution
     if (tool === 'sketch') {
       this.startSketch();
     } else if (tool === 'extrude') {
@@ -801,10 +848,8 @@ class CADApp {
     this.geometryManager.sketches.push(this.activeSketch);
     this.viewport.scene.add(this.activeSketch.group);
 
-    // Orient view normal to sketch
     this.viewport.setStandardView(plane.toLowerCase() === 'xz' ? 'top' : 'front');
 
-    // Enable sketch toolbar items
     document.getElementById('tool-line').classList.remove('disabled');
     document.getElementById('tool-rect').classList.remove('disabled');
     document.getElementById('tool-circle').classList.remove('disabled');
@@ -817,8 +862,10 @@ class CADApp {
     let isDrawing = false;
     let startPt = null;
 
-    this.viewport.canvas.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return; // Only Left Click
+    const handlePointer = (clientX, clientY) => {
+      const rect = this.viewport.canvas.getBoundingClientRect();
+      this.viewport.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      this.viewport.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
       const worldPos = this.viewport.getWorldIntersectionPlane();
       if (!worldPos) return;
@@ -860,7 +907,6 @@ class CADApp {
           this.uiManager.notify("2D Geometry added to active sketch", "info");
         }
       } else if (this.activeTool === 'select') {
-        // Selection Logic via Raycasting
         this.viewport.raycaster.setFromCamera(this.viewport.mouse, this.viewport.camera);
         const intersects = this.viewport.raycaster.intersectObjects(this.geometryManager.bodies.map(b => b.mesh));
 
@@ -872,11 +918,13 @@ class CADApp {
           this.selectEntity(null);
         }
       }
-    });
+    };
+
+    // Supports desktop mouse and touch interaction on mobile
+    this.viewport.canvas.addEventListener('click', (e) => handlePointer(e.clientX, e.clientY));
   }
 
   selectEntity(obj) {
-    // Un-highlight previous
     if (this.selectedObject && this.selectedObject.type === 'body') {
       this.selectedObject.mesh.material = this.geometryManager.material;
     }
@@ -927,7 +975,6 @@ class CADApp {
   }
 
   showDemoModel() {
-    // Generates a complex multi-feature mechanical CAD demo model programmatically
     const baseSketch = new Sketch(null, 'Demo Base Sketch', 'XY');
     baseSketch.addEntity({ type: 'rect', x: -40, y: -40, w: 80, h: 80 });
     const baseBody = this.geometryManager.extrudeSketch(baseSketch, 15);
@@ -936,12 +983,12 @@ class CADApp {
     cylSketch.addEntity({ type: 'circle', cx: 0, cy: 0, r: 25 });
     const cylBody = this.geometryManager.extrudeSketch(cylSketch, 50);
 
-    this.uiManager.notify("Demo Parametric Components Generated!", "success");
+    this.uiManager.notify("Demo Components Generated!", "success");
     this.viewport.fitAll();
   }
 
   startTutorial() {
-    alert("ZEN CAD QUICK START TUTORIAL:\n\n1. Click 'Sketch' (S) -> Type 'XY'.\n2. Select 'Rectangle' -> Click 2 points in viewport to draw.\n3. Click 'Extrude' (E) -> Enter height (e.g., 30mm).\n4. Click 'Insert' at top bar for instant mechanical demo model!");
+    alert("ZEN CAD MOBILE & DESKTOP GUIDE:\n\n1. Fullscreen Button: Tap top icon [ ] to toggle desktop/mobile full screen.\n2. Sketch: Tap 'Sketch' tool -> Type plane ('XY').\n3. Draw 2D: Tap Rectangle/Circle tool -> Tap canvas.\n4. Extrude: Tap Extrude tool -> Set depth (e.g. 30mm).\n5. Navigation: Single finger drag to rotate. Two fingers to pan/zoom.");
   }
 
   openSettings() {
@@ -950,8 +997,12 @@ class CADApp {
 
   setupKeyboardShortcuts() {
     window.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT') return; // Ignore input typing
+      if (e.target.tagName === 'INPUT') return;
 
+      if (e.key === 'F11') {
+        e.preventDefault();
+        this.toggleFullscreen();
+      }
       if (e.key === 'Escape') this.setTool('select');
       if (e.key === 's' || e.key === 'S') this.setTool('sketch');
       if (e.key === 'e' || e.key === 'E') this.setTool('extrude');
