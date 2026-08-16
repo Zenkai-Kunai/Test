@@ -31,16 +31,16 @@
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            align-items: center;
         }
-        textarea {
-            width: 100%;
-            height: 150px;
+        input[type="file"] {
             padding: 10px;
-            border: 1px solid var(--border);
+            border: 1px dashed var(--border);
             border-radius: 6px;
-            resize: vertical;
+            background: var(--surface);
+            cursor: pointer;
+            flex-grow: 1;
             font-family: monospace;
-            font-size: 12px;
         }
         button {
             background: var(--primary);
@@ -51,6 +51,7 @@
             cursor: pointer;
             font-weight: bold;
             transition: opacity 0.2s;
+            height: 100%;
         }
         button:hover {
             opacity: 0.9;
@@ -85,11 +86,11 @@
 
     <div class="header no-print">
         <h2>Auto Circuit Topology Visualizer</h2>
-        <p>Paste the board configuration text below. The parser looks for the <strong>CONNECTIONS</strong> block to build the network.</p>
-        <textarea id="boardData" placeholder="Paste Agilent 3070 board file here..."></textarea>
+        <p>Upload your Agilent 3070 board file below. The parser looks for the <strong>CONNECTIONS</strong> block to build the network.</p>
     </div>
 
     <div class="controls no-print">
+        <input type="file" id="fileInput" accept=".txt,.board,*/*" />
         <button onclick="generateDiagram()">Generate Diagram</button>
         <button onclick="window.print()" style="background: #10b981;">Download Searchable PDF</button>
     </div>
@@ -120,7 +121,7 @@
             // Isolate the CONNECTIONS section
             const connSection = text.split(/CONNECTIONS/i)[1];
             if (!connSection) {
-                alert("Could not find CONNECTIONS section in the text.");
+                alert("Could not find CONNECTIONS section in the file.");
                 return;
             }
             
@@ -160,15 +161,31 @@
         }
 
         function generateDiagram() {
-            const text = document.getElementById('boardData').value;
-            if (!text.trim()) {
-                alert("Please paste the board file data first.");
+            const fileInput = document.getElementById('fileInput');
+            
+            if (fileInput.files.length === 0) {
+                alert("Please upload a board file first.");
                 return;
             }
 
-            parseBoardFile(text);
-            runPhysicsLayout();
-            renderSVG();
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            // When the file is successfully read, parse and draw it
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseBoardFile(text);
+                runPhysicsLayout();
+                renderSVG();
+            };
+
+            // Handle errors
+            reader.onerror = function() {
+                alert("There was an error reading the file.");
+            };
+
+            // Read the uploaded file as plain text
+            reader.readAsText(file);
         }
 
         function runPhysicsLayout() {
