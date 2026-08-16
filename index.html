@@ -2,583 +2,298 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ZEN 3D CAD</title>
-    <!-- Three.js Engine & Controls via standard CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circuit Topology Generator</title>
     <style>
+        /* Vanilla CSS */
         :root {
-            --bg-dark: #101216;
-            --bg-panel: #171a21;
-            --bg-card: #20242f;
-            --bg-hover: #2b3140;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --accent-light: rgba(59, 130, 246, 0.2);
-            --border: #2a303d;
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
-            --text-dim: #6b7280;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --success: #10b981;
-            --radius-sm: 4px;
-            --radius-md: 8px;
-            --radius-lg: 12px;
-            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --topbar-h: 50px;
-            --statusbar-h: 26px;
-            --sidebar-w: 260px;
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
         }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-dark); color: var(--text-main); font-family: var(--font); font-size: 13px; }
-
-        /* Grid Layout */
-        #app-container {
-            display: grid;
-            grid-template-rows: var(--topbar-h) 1fr var(--statusbar-h);
-            grid-template-columns: var(--sidebar-w) 1fr var(--sidebar-w);
-            grid-template-areas: "topbar topbar topbar" "left-panel workspace right-panel" "statusbar statusbar statusbar";
-            width: 100vw; height: 100vh; position: relative;
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
         }
-
-        /* Top Bar */
-        #top-bar {
-            grid-area: topbar; background: var(--bg-panel); border-bottom: 1px solid var(--border);
-            display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100;
+        .header {
+            margin-bottom: 20px;
         }
-        .logo-area { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; color: #fff; }
-        .logo-badge { background: linear-gradient(135deg, #3b82f6, #8b5cf6); padding: 2px 6px; border-radius: var(--radius-sm); font-size: 10px; font-weight: 800; letter-spacing: 0.5px; }
-        .menu-bar { display: flex; align-items: center; gap: 4px; }
-        .menu-btn { background: transparent; border: none; color: var(--text-muted); padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; }
-        .menu-btn:hover { background: var(--bg-hover); color: var(--text-main); }
-        .top-tools { display: flex; align-items: center; gap: 6px; }
-
-        .icon-btn {
-            background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main);
-            min-width: 32px; height: 32px; padding: 0 8px; border-radius: var(--radius-sm);
-            display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-size: 12px;
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
         }
-        .icon-btn:hover, .icon-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-        /* Sidebar Panels */
-        .panel { background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; z-index: 10; }
-        #right-panel { grid-area: right-panel; border-right: none; border-left: 1px solid var(--border); }
-        .panel-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
-        .panel-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 14px; }
-
-        .shape-category { font-weight: 600; font-size: 11px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; }
-        .shape-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-        .shape-card {
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
-            padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s ease;
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            resize: vertical;
+            font-family: monospace;
+            font-size: 12px;
         }
-        .shape-card:hover { border-color: var(--accent); background: var(--bg-hover); transform: translateY(-1px); }
-        .shape-card.armed { border-color: var(--warning); background: rgba(245, 158, 11, 0.15); }
-        .shape-card svg { width: 22px; height: 22px; stroke: var(--accent); }
-        .shape-card span { font-size: 11px; color: var(--text-main); font-weight: 500; }
-
-        /* Viewport Canvas Area */
-        #workspace { grid-area: workspace; position: relative; background: #0c0e12; overflow: hidden; touch-action: none; }
-        #canvas3d { width: 100%; height: 100%; display: block; }
-
-        .viewport-controls { position: absolute; top: 14px; right: 14px; display: flex; flex-direction: column; gap: 6px; z-index: 20; }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        #canvas-container {
+            flex-grow: 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+        .node-component { fill: #ef4444; }
+        .node-net { fill: #3b82f6; }
+        .link { stroke: #cbd5e1; stroke-width: 1.5px; }
+        .label { font-size: 10px; fill: #0f172a; pointer-events: none; }
         
-        .dimension-overlay {
-            position: absolute; top: 14px; left: 14px; background: rgba(16, 18, 22, 0.88);
-            border: 1px solid var(--accent); border-radius: var(--radius-md); padding: 8px 12px;
-            font-family: monospace; font-size: 12px; z-index: 30; display: none; color: #fff; pointer-events: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        }
-
-        .picker-banner {
-            position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-            background: var(--warning); color: #000; font-weight: 700; padding: 8px 16px;
-            border-radius: var(--radius-md); z-index: 40; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-size: 12px;
-        }
-
-        /* Status Bar */
-        #status-bar { grid-area: statusbar; background: var(--bg-panel); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; color: var(--text-muted); z-index: 100; }
-        
-        /* Properties Component */
-        .prop-group { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-        .prop-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .prop-row label { font-size: 11px; color: var(--text-muted); width: 70px; }
-        .prop-row input { flex: 1; background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-main); padding: 4px 8px; border-radius: var(--radius-sm); font-size: 11px; outline: none; }
-
-        .btn-action { width: 100%; padding: 8px; background: var(--accent); border: none; color: #fff; border-radius: var(--radius-sm); font-weight: 600; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
-        .btn-action:hover { background: var(--accent-hover); }
-        .btn-action.secondary { background: var(--bg-hover); color: var(--text-main); border: 1px solid var(--border); }
-        .btn-action.danger { background: var(--danger); }
-
-        /* Modal Overlays */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 2000; display: none; align-items: center; justify-content: center; }
-        .modal-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 360px; max-width: 90vw; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
-        .modal-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
-        .modal-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-
-        /* Mobile Layout Modifications */
-        #mobile-bottom-bar { display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 54px; background: var(--bg-panel); border-top: 1px solid var(--border); z-index: 500; grid-template-columns: repeat(4, 1fr); }
-        .mobile-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--text-muted); font-size: 10px; background: transparent; border: none; }
-        .mobile-tab.active { color: var(--accent); }
-
-        @media (max-width: 768px) {
-            #app-container { grid-template-columns: 0 1fr 0; grid-template-rows: 48px 1fr 54px; grid-template-areas: "topbar topbar topbar" "workspace workspace workspace" "mobile-bar mobile-bar mobile-bar"; }
-            .panel { display: none; }
-            .menu-bar { display: none; }
-            #mobile-bottom-bar { display: grid; }
-            #status-bar { display: none; }
+        /* Print Styles to ensure clean PDF export */
+        @media print {
+            body { padding: 0; background: white; }
+            .no-print { display: none !important; }
+            #canvas-container { border: none; height: 100vh; width: 100vw; }
+            svg { width: 100%; height: 100%; }
         }
     </style>
 </head>
 <body>
 
-<div id="app-container">
-    <!-- TOP HEADER BAR -->
-    <header id="top-bar">
-        <div class="logo-area">
-            <i data-lucide="box"></i>
-            <span>ZEN 3D CAD</span>
-            <span class="logo-badge">ENGINE</span>
-        </div>
-
-        <div class="menu-bar">
-            <button class="menu-btn" onclick="app.newProject()">New</button>
-            <button class="menu-btn" onclick="app.exportFile('stl')">Export STL</button>
-            <button class="menu-btn" onclick="app.exportFile('obj')">Export OBJ</button>
-            <button class="menu-btn" onclick="app.exportFile('json')">Save JSON</button>
-        </div>
-
-        <div class="top-tools">
-            <button class="icon-btn" onclick="app.toggle2D3D()" id="btn-toggle-2d3d"><i data-lucide="square"></i> <span id="lbl-2d3d">2D Mode</span></button>
-            <button class="icon-btn" onclick="app.toggleHoleMode()" title="Toggle Solid/Hole State"><i data-lucide="circle-dot"></i> Hole</button>
-            <button class="icon-btn" onclick="app.deleteSelected()" title="Delete Selected Object"><i data-lucide="trash-2"></i></button>
-            <button class="icon-btn" onclick="app.toggleFullscreen()" title="Toggle Fullscreen"><i data-lucide="maximize"></i></button>
-        </div>
-    </header>
-
-    <!-- LEFT PANEL: SHAPE LIBRARY -->
-    <aside class="panel" id="left-panel">
-        <div class="panel-header">Shape Library</div>
-        <div class="panel-body">
-            <div class="shape-category">Solids</div>
-            <div class="shape-grid">
-                <div class="shape-card" id="card-box" onclick="app.armShape('box')"><i data-lucide="box"></i><span>Box</span></div>
-                <div class="shape-card" id="card-cylinder" onclick="app.armShape('cylinder')"><i data-lucide="cylinder"></i><span>Cylinder</span></div>
-                <div class="shape-card" id="card-sphere" onclick="app.armShape('sphere')"><i data-lucide="circle"></i><span>Sphere</span></div>
-                <div class="shape-card" id="card-cone" onclick="app.armShape('cone')"><i data-lucide="triangle"></i><span>Cone</span></div>
-            </div>
-
-            <div class="shape-category">CAD Features</div>
-            <button class="btn-action secondary" onclick="app.startEdgePicker('fillet')"><i data-lucide="corner-down-right"></i> Fillet Edge</button>
-            <button class="btn-action secondary" onclick="app.startEdgePicker('chamfer')"><i data-lucide="slash"></i> Chamfer Edge</button>
-        </div>
-    </aside>
-
-    <!-- CENTER 3D/2D WORKSPACE -->
-    <main id="workspace">
-        <canvas id="canvas3d"></canvas>
-        <div class="picker-banner" id="picker-banner">Tap an Edge on the Object...</div>
-        <div class="dimension-overlay" id="dim-overlay">
-            X: <span id="lbl-x">30</span>mm | Y: <span id="lbl-y">30</span>mm | Z: <span id="lbl-z">30</span>mm
-        </div>
-        <div class="viewport-controls">
-            <button class="icon-btn" onclick="app.resetCamera()" title="Reset Camera View"><i data-lucide="home"></i></button>
-            <button class="icon-btn" onclick="app.toggleGizmoMode()" title="Toggle Move/Scale Arrow Mode"><i data-lucide="move"></i></button>
-        </div>
-    </main>
-
-    <!-- RIGHT PANEL: OBJECT PROPERTIES -->
-    <aside class="panel" id="right-panel">
-        <div class="panel-header">Properties</div>
-        <div class="panel-body">
-            <div id="no-sel-msg" style="color:var(--text-dim); text-align:center;">Select an object in the viewport to modify.</div>
-            <div id="sel-props" style="display:none;" class="prop-group">
-                <div class="prop-row"><label>Width (X)</label><input type="number" id="inp-x" onchange="app.updateManualProp('x', this.value)"></div>
-                <div class="prop-row"><label>Depth (Y)</label><input type="number" id="inp-y" onchange="app.updateManualProp('y', this.value)"></div>
-                <div class="prop-row"><label>Height (Z)</label><input type="number" id="inp-z" onchange="app.updateManualProp('z', this.value)"></div>
-                <div class="prop-row"><label>Color</label><input type="color" id="inp-color" value="#3b82f6" onchange="app.updateColor(this.value)"></div>
-                <button class="btn-action danger" onclick="app.deleteSelected()"><i data-lucide="trash-2"></i> Delete Object</button>
-            </div>
-        </div>
-    </aside>
-
-    <!-- FOOTER STATUS BAR -->
-    <footer id="status-bar">
-        <span>Objects: <span id="obj-count">0</span></span>
-        <span>Tap board to place shapes | Arrow handles resize in real time</span>
-    </footer>
-
-    <!-- MOBILE BOTTOM NAVIGATION -->
-    <nav id="mobile-bottom-bar">
-        <button class="mobile-tab" onclick="app.armShape('box')"><i data-lucide="box"></i>Box</button>
-        <button class="mobile-tab" onclick="app.armShape('cylinder')"><i data-lucide="cylinder"></i>Cylinder</button>
-        <button class="mobile-tab" onclick="app.startEdgePicker('fillet')"><i data-lucide="corner-down-right"></i>Fillet</button>
-        <button class="mobile-tab" onclick="app.toggle2D3D()"><i data-lucide="square"></i>2D/3D</button>
-    </nav>
-</div>
-
-<!-- CAD FEATURE MODAL DIALOG -->
-<div class="modal-overlay" id="cad-modal">
-    <div class="modal-card">
-        <div class="modal-header">
-            <span id="cad-title">Apply Feature</span>
-            <button class="icon-btn" onclick="app.closeModal()"><i data-lucide="x"></i></button>
-        </div>
-        <div class="modal-body">
-            <div class="prop-row">
-                <label id="cad-param-label">Value (mm)</label>
-                <input type="number" id="cad-param-val" value="2.0" step="0.5">
-            </div>
-            <button class="btn-action" onclick="app.applyCadFeature()">Apply to Selected Edge</button>
-        </div>
+    <div class="header no-print">
+        <h2>Auto Circuit Topology Visualizer</h2>
+        <p>Paste the board configuration text below. The parser looks for the <strong>CONNECTIONS</strong> block to build the network.</p>
+        <textarea id="boardData" placeholder="Paste Agilent 3070 board file here..."></textarea>
     </div>
-</div>
 
-<script>
-/**
- * ZEN 3D CAD Engine - Core Implementation
- * Direct 3-Axis Resize Gizmos, 2D Orthographic Mode, Interactive Edge Pickers, Tap-to-Place Solids
- */
-class ZenCADEngine {
-    constructor() {
-        this.objects = [];
-        this.selectedObject = null;
-        this.armedShape = null;
-        this.edgePickerMode = null;
-        this.selectedEdgeMesh = null;
-        this.gizmoMode = 'scale';
-        this.is2DMode = false;
+    <div class="controls no-print">
+        <button onclick="generateDiagram()">Generate Diagram</button>
+        <button onclick="window.print()" style="background: #10b981;">Download Searchable PDF</button>
+    </div>
 
-        this.initThree();
-        // Add default base object
-        this.addShape('box', new THREE.Vector3(0, 15, 0));
-    }
+    <div id="canvas-container">
+        <svg id="circuitSvg"></svg>
+    </div>
 
-    initThree() {
-        const container = document.getElementById('workspace');
-        this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color('#0c0e12');
+    <script>
+        // Vanilla JS Physics & Parsing Engine
+        let nodes = [];
+        let edges = [];
 
-        // Setup Cameras
-        this.perspCamera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-        this.perspCamera.position.set(80, 80, 80);
+        function parseBoardFile(text) {
+            nodes = [];
+            edges = [];
+            const nodeMap = new Map();
 
-        const aspect = container.clientWidth / container.clientHeight;
-        const d = 100;
-        this.orthoCamera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
-        this.orthoCamera.position.set(0, 150, 0);
-        this.orthoCamera.lookAt(0, 0, 0);
-
-        this.camera = this.perspCamera;
-
-        this.renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas3d'), antialias: true });
-        this.renderer.setSize(container.clientWidth, container.clientHeight);
-
-        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-
-        // Transform Controls Gizmo
-        this.transformControls = new THREE.TransformControls(this.camera, this.renderer.domElement);
-        this.transformControls.setMode('scale');
-        this.scene.add(this.transformControls);
-
-        this.transformControls.addEventListener('dragging-changed', (e) => {
-            this.controls.enabled = !e.value;
-            this.updateOverlays();
-        });
-
-        this.transformControls.addEventListener('change', () => {
-            if (this.selectedObject) {
-                this.updateOverlays();
+            function addNode(id, type) {
+                if (!nodeMap.has(id)) {
+                    const node = { id, type, x: Math.random() * 800, y: Math.random() * 600, vx: 0, vy: 0 };
+                    nodes.push(node);
+                    nodeMap.set(id, node);
+                }
+                return nodeMap.get(id);
             }
-        });
 
-        // Grid & Environment Lighting
-        this.gridHelper = new THREE.GridHelper(200, 40, 0x3b82f6, 0x2a303d);
-        this.scene.add(this.gridHelper);
-
-        const ambLight = new THREE.AmbientLight(0xffffff, 0.7);
-        this.scene.add(ambLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(50, 100, 50);
-        this.scene.add(dirLight);
-
-        this.raycaster = new THREE.Raycaster();
-        this.mouse = new THREE.Vector2();
-        this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-
-        container.addEventListener('pointerdown', (e) => this.onPointerDown(e));
-        window.addEventListener('resize', () => this.onResize());
-
-        this.animate();
-    }
-
-    armShape(type) {
-        this.armedShape = type;
-        document.querySelectorAll('.shape-card').forEach(c => c.classList.remove('armed'));
-        const card = document.getElementById(`card-${type}`);
-        if (card) card.classList.add('armed');
-    }
-
-    onPointerDown(e) {
-        if (this.transformControls.dragging) return;
-
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-
-        // Edge Picker Workflow
-        if (this.edgePickerMode) {
-            const intersects = this.raycaster.intersectObjects(this.objects);
-            if (intersects.length > 0) {
-                this.highlightPickedEdge(intersects[0]);
+            // Isolate the CONNECTIONS section
+            const connSection = text.split(/CONNECTIONS/i)[1];
+            if (!connSection) {
+                alert("Could not find CONNECTIONS section in the text.");
+                return;
             }
-            return;
+            
+            // Extract until the next major section (usually DEVICES or END)
+            const connectionsText = connSection.split(/(DEVICES|END)/i)[0];
+            
+            // Parse logic: Nets are un-indented or single-indented, parts are double-indented
+            const lines = connectionsText.split('\n');
+            let currentNet = null;
+
+            lines.forEach(line => {
+                // Remove comments and trim right
+                let cleanLine = line.split('!')[0].trimRight();
+                if (!cleanLine.trim()) return;
+
+                // Detect if it's a net name (starts with minimal whitespace)
+                const leadingSpaces = cleanLine.length - cleanLine.trimLeft().length;
+                
+                if (leadingSpaces < 4 && cleanLine.trim() !== '') {
+                    currentNet = cleanLine.trim();
+                    addNode(currentNet, 'net');
+                } else if (leadingSpaces >= 4 && currentNet) {
+                    // Extract component name (e.g., C18.2 -> C18)
+                    let componentPart = cleanLine.trim().split('.')[0];
+                    // Clean up semicolons
+                    componentPart = componentPart.replace(';', '');
+                    
+                    if (componentPart) {
+                        addNode(componentPart, 'component');
+                        edges.push({
+                            source: currentNet,
+                            target: componentPart
+                        });
+                    }
+                }
+            });
         }
 
-        // Tap-to-Place Shape Workflow
-        if (this.armedShape) {
-            const intersectPt = new THREE.Vector3();
-            this.raycaster.ray.intersectPlane(this.groundPlane, intersectPt);
-            if (intersectPt) {
-                this.addShape(this.armedShape, intersectPt);
-                this.armedShape = null;
-                document.querySelectorAll('.shape-card').forEach(c => c.classList.remove('armed'));
+        function generateDiagram() {
+            const text = document.getElementById('boardData').value;
+            if (!text.trim()) {
+                alert("Please paste the board file data first.");
+                return;
             }
-            return;
+
+            parseBoardFile(text);
+            runPhysicsLayout();
+            renderSVG();
         }
 
-        // Standard Selection Workflow
-        const intersects = this.raycaster.intersectObjects(this.objects);
-        if (intersects.length > 0) {
-            this.selectObject(intersects[0].object);
-        } else {
-            this.selectObject(null);
+        function runPhysicsLayout() {
+            // Simple Force-Directed Graph implementation (Fruchterman-Reingold inspired)
+            const iterations = 150;
+            const k = 50; // Optimal distance
+            const width = document.getElementById('canvas-container').clientWidth;
+            const height = document.getElementById('canvas-container').clientHeight;
+
+            // Pre-map node indices for faster edge lookups
+            const nodeDict = {};
+            nodes.forEach(n => nodeDict[n.id] = n);
+
+            // Center nodes initially
+            nodes.forEach(n => {
+                n.x = width / 2 + (Math.random() - 0.5) * 200;
+                n.y = height / 2 + (Math.random() - 0.5) * 200;
+            });
+
+            for (let iter = 0; iter < iterations; iter++) {
+                // Calculate Repulsive forces
+                for (let i = 0; i < nodes.length; i++) {
+                    for (let j = i + 1; j < nodes.length; j++) {
+                        let dx = nodes[i].x - nodes[j].x;
+                        let dy = nodes[i].y - nodes[j].y;
+                        let distSq = dx*dx + dy*dy;
+                        if (distSq === 0) distSq = 0.01;
+                        if (distSq < 10000) { 
+                            let force = (k * k) / distSq;
+                            let fx = force * dx;
+                            let fy = force * dy;
+                            nodes[i].vx += fx;
+                            nodes[i].vy += fy;
+                            nodes[j].vx -= fx;
+                            nodes[j].vy -= fy;
+                        }
+                    }
+                }
+
+                // Calculate Attractive forces
+                edges.forEach(edge => {
+                    let source = nodeDict[edge.source];
+                    let target = nodeDict[edge.target];
+                    if(!source || !target) return;
+                    let dx = target.x - source.x;
+                    let dy = target.y - source.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist === 0) dist = 0.01;
+                    let force = (dist * dist) / k;
+                    let fx = (force * dx) / dist;
+                    let fy = (force * dy) / dist;
+                    
+                    // Net nodes are heavier (move less) to create better clustering
+                    let sourceWeight = source.type === 'net' ? 0.2 : 0.8;
+                    let targetWeight = target.type === 'net' ? 0.2 : 0.8;
+
+                    source.vx += fx * sourceWeight;
+                    source.vy += fy * sourceWeight;
+                    target.vx -= fx * targetWeight;
+                    target.vy -= fy * targetWeight;
+                });
+
+                // Apply velocity, friction, and bounds
+                const temp = iter / iterations; // Cooling schedule
+                const maxDisplacement = temp * 20 + 1;
+
+                nodes.forEach(n => {
+                    let vDist = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
+                    if (vDist > 0) {
+                        let dispX = (n.vx / vDist) * Math.min(vDist, maxDisplacement);
+                        let dispY = (n.vy / vDist) * Math.min(vDist, maxDisplacement);
+                        n.x += dispX;
+                        n.y += dispY;
+                    }
+                    // Keep within bounds
+                    n.x = Math.max(20, Math.min(width - 20, n.x));
+                    n.y = Math.max(20, Math.min(height - 20, n.y));
+                    
+                    // Reset velocity
+                    n.vx = 0;
+                    n.vy = 0;
+                });
+            }
         }
-    }
 
-    addShape(type, pos) {
-        let geom;
-        if (type === 'box') geom = new THREE.BoxGeometry(30, 30, 30);
-        else if (type === 'cylinder') geom = new THREE.CylinderGeometry(15, 15, 30, 32);
-        else if (type === 'sphere') geom = new THREE.SphereGeometry(15, 32, 32);
-        else geom = new THREE.ConeGeometry(15, 30, 32);
+        function renderSVG() {
+            const svg = document.getElementById('circuitSvg');
+            svg.innerHTML = ''; // Clear previous
 
-        const mat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.3 });
-        const mesh = new THREE.Mesh(geom, mat);
-        mesh.position.copy(pos);
-        mesh.position.y += 15;
-        mesh.userData = { type, baseSize: { x: 30, y: 30, z: 30 }, isHole: false, originalColor: 0x3b82f6 };
+            const nodeDict = {};
+            nodes.forEach(n => nodeDict[n.id] = n);
 
-        this.scene.add(mesh);
-        this.objects.push(mesh);
-        this.selectObject(mesh);
-        document.getElementById('obj-count').innerText = this.objects.length;
-    }
+            // Draw Edges
+            edges.forEach(edge => {
+                let source = nodeDict[edge.source];
+                let target = nodeDict[edge.target];
+                if(source && target) {
+                    let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', source.x);
+                    line.setAttribute('y1', source.y);
+                    line.setAttribute('x2', target.x);
+                    line.setAttribute('y2', target.y);
+                    line.setAttribute('class', 'link');
+                    svg.appendChild(line);
+                }
+            });
 
-    selectObject(obj) {
-        this.selectedObject = obj;
-        if (obj) {
-            this.transformControls.attach(obj);
-            document.getElementById('no-sel-msg').style.display = 'none';
-            document.getElementById('sel-props').style.display = 'flex';
-            document.getElementById('dim-overlay').style.display = 'block';
-            this.updateOverlays();
-        } else {
-            this.transformControls.detach();
-            document.getElementById('no-sel-msg').style.display = 'block';
-            document.getElementById('sel-props').style.display = 'none';
-            document.getElementById('dim-overlay').style.display = 'none';
+            // Draw Nodes
+            nodes.forEach(n => {
+                let circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', n.x);
+                circle.setAttribute('cy', n.y);
+                circle.setAttribute('r', n.type === 'net' ? 6 : 4);
+                circle.setAttribute('class', n.type === 'net' ? 'node-net' : 'node-component');
+                svg.appendChild(circle);
+
+                // Draw Text (Searchable in PDF)
+                let text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', n.x + 8);
+                text.setAttribute('y', n.y + 3);
+                text.setAttribute('class', 'label');
+                text.textContent = n.id;
+                svg.appendChild(text);
+            });
         }
-    }
-
-    updateOverlays() {
-        if (!this.selectedObject) return;
-        const s = this.selectedObject.scale;
-        const b = this.selectedObject.userData.baseSize;
-
-        const x = Math.round(b.x * s.x);
-        const y = Math.round(b.y * s.y);
-        const z = Math.round(b.z * s.z);
-
-        document.getElementById('lbl-x').innerText = x;
-        document.getElementById('lbl-y').innerText = y;
-        document.getElementById('lbl-z').innerText = z;
-
-        document.getElementById('inp-x').value = x;
-        document.getElementById('inp-y').value = y;
-        document.getElementById('inp-z').value = z;
-    }
-
-    updateManualProp(axis, val) {
-        if (!this.selectedObject) return;
-        const v = parseFloat(val);
-        const b = this.selectedObject.userData.baseSize;
-        if (axis === 'x') this.selectedObject.scale.x = v / b.x;
-        if (axis === 'y') this.selectedObject.scale.y = v / b.y;
-        if (axis === 'z') this.selectedObject.scale.z = v / b.z;
-        this.updateOverlays();
-    }
-
-    updateColor(colorHex) {
-        if (!this.selectedObject) return;
-        this.selectedObject.userData.originalColor = colorHex;
-        if (!this.selectedObject.userData.isHole) {
-            this.selectedObject.material.color.set(colorHex);
-        }
-    }
-
-    toggleHoleMode() {
-        if (!this.selectedObject) return;
-        const d = this.selectedObject.userData;
-        d.isHole = !d.isHole;
-        if (d.isHole) {
-            this.selectedObject.material.transparent = true;
-            this.selectedObject.material.opacity = 0.45;
-            this.selectedObject.material.color.set('#ef4444');
-        } else {
-            this.selectedObject.material.transparent = false;
-            this.selectedObject.material.opacity = 1.0;
-            this.selectedObject.material.color.set(d.originalColor);
-        }
-    }
-
-    toggle2D3D() {
-        this.is2DMode = !this.is2DMode;
-        if (this.is2DMode) {
-            this.camera = this.orthoCamera;
-            this.camera.position.set(0, 150, 0);
-            this.camera.lookAt(0, 0, 0);
-            document.getElementById('lbl-2d3d').innerText = '3D Mode';
-        } else {
-            this.camera = this.perspCamera;
-            this.camera.position.set(80, 80, 80);
-            document.getElementById('lbl-2d3d').innerText = '2D Mode';
-        }
-        this.controls.object = this.camera;
-        this.transformControls.camera = this.camera;
-        this.onResize();
-    }
-
-    toggleGizmoMode() {
-        this.gizmoMode = this.gizmoMode === 'scale' ? 'translate' : 'scale';
-        this.transformControls.setMode(this.gizmoMode);
-    }
-
-    startEdgePicker(type) {
-        this.edgePickerMode = type;
-        document.getElementById('picker-banner').style.display = 'block';
-    }
-
-    highlightPickedEdge(intersect) {
-        if (this.selectedEdgeMesh) this.scene.remove(this.selectedEdgeMesh);
-
-        const geom = new THREE.BufferGeometry().setFromPoints([
-            intersect.point.clone().add(new THREE.Vector3(-6, 0, 0)),
-            intersect.point.clone().add(new THREE.Vector3(6, 0, 0))
-        ]);
-        const mat = new THREE.LineBasicMaterial({ color: 0xf59e0b, linewidth: 4 });
-        this.selectedEdgeMesh = new THREE.Line(geom, mat);
-        this.scene.add(this.selectedEdgeMesh);
-
-        document.getElementById('picker-banner').style.display = 'none';
-        document.getElementById('cad-title').innerText = this.edgePickerMode === 'fillet' ? 'Fillet Edge' : 'Chamfer Edge';
-        document.getElementById('cad-modal').style.display = 'flex';
-    }
-
-    applyCadFeature() {
-        alert(`${this.edgePickerMode.toUpperCase()} operation evaluated smoothly on selected edge geometry.`);
-        if (this.selectedEdgeMesh) this.scene.remove(this.selectedEdgeMesh);
-        this.selectedEdgeMesh = null;
-        this.edgePickerMode = null;
-        this.closeModal();
-    }
-
-    closeModal() {
-        document.getElementById('cad-modal').style.display = 'none';
-    }
-
-    deleteSelected() {
-        if (!this.selectedObject) return;
-        this.scene.remove(this.selectedObject);
-        this.objects = this.objects.filter(o => o !== this.selectedObject);
-        this.selectObject(null);
-        document.getElementById('obj-count').innerText = this.objects.length;
-    }
-
-    newProject() {
-        this.objects.forEach(o => this.scene.remove(o));
-        this.objects = [];
-        this.selectObject(null);
-        document.getElementById('obj-count').innerText = '0';
-    }
-
-    exportFile(format) {
-        let content = `# ZEN 3D CAD Export (${format.toUpperCase()})\n`;
-        this.objects.forEach((o, i) => {
-            content += `v ${o.position.x} ${o.position.y} ${o.position.z}\n`;
-        });
-        const blob = new Blob([content], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `model.${format}`;
-        a.click();
-    }
-
-    resetCamera() {
-        if (this.is2DMode) {
-            this.camera.position.set(0, 150, 0);
-        } else {
-            this.camera.position.set(80, 80, 80);
-        }
-        this.controls.target.set(0, 0, 0);
-        this.controls.update();
-    }
-
-    toggleFullscreen() {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen();
-        } else if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
-    }
-
-    onResize() {
-        const c = document.getElementById('workspace');
-        if (this.camera.isPerspectiveCamera) {
-            this.camera.aspect = c.clientWidth / c.clientHeight;
-        } else {
-            const aspect = c.clientWidth / c.clientHeight;
-            const d = 100;
-            this.camera.left = -d * aspect;
-            this.camera.right = d * aspect;
-            this.camera.top = d;
-            this.camera.bottom = -d;
-        }
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(c.clientWidth, c.clientHeight);
-    }
-
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        this.controls.update();
-        this.renderer.render(this.scene, this.camera);
-    }
-}
-
-// Global Application Instance
-let app;
-window.addEventListener('DOMContentLoaded', () => {
-    app = new ZenCADEngine();
-    lucide.createIcons();
-});
-</script>
+    </script>
 </body>
 </html>
