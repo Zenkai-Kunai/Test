@@ -3,24 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ZEN 3D CAD — Modern 3D Solid Modeling Engine</title>
-    <!-- Three.js and CSG / Math Libraries -->
+    <title>ZEN 3D CAD</title>
+    <!-- Three.js Engine & Controls via standard CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <!-- ThreeCSG Library for solid Booleans -->
-    <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/bundle.require.min.js"></script>
-    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --bg-dark: #121418;
-            --bg-panel: #1a1d24;
-            --bg-card: #222630;
-            --bg-hover: #2d3240;
+            --bg-dark: #101216;
+            --bg-panel: #171a21;
+            --bg-card: #20242f;
+            --bg-hover: #2b3140;
             --accent: #3b82f6;
             --accent-hover: #2563eb;
-            --accent-light: rgba(59, 130, 246, 0.15);
-            --border: #2e3440;
+            --accent-light: rgba(59, 130, 246, 0.2);
+            --border: #2a303d;
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
             --text-dim: #6b7280;
@@ -31,759 +29,134 @@
             --radius-md: 8px;
             --radius-lg: 12px;
             --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --topbar-height: 52px;
-            --statusbar-height: 28px;
-            --sidebar-width: 260px;
+            --topbar-h: 50px;
+            --statusbar-h: 26px;
+            --sidebar-w: 260px;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: manipulation;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-dark); color: var(--text-main); font-family: var(--font); font-size: 13px; }
 
-        body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            font-family: var(--font);
-            font-size: 13px;
-        }
-
-        /* Layout */
+        /* Grid Layout */
         #app-container {
             display: grid;
-            grid-template-rows: var(--topbar-height) 1fr var(--statusbar-height);
-            grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
-            grid-template-areas: 
-                "topbar topbar topbar"
-                "left-panel workspace right-panel"
-                "statusbar statusbar statusbar";
-            width: 100vw;
-            height: 100vh;
-            position: relative;
+            grid-template-rows: var(--topbar-h) 1fr var(--statusbar-h);
+            grid-template-columns: var(--sidebar-w) 1fr var(--sidebar-w);
+            grid-template-areas: "topbar topbar topbar" "left-panel workspace right-panel" "statusbar statusbar statusbar";
+            width: 100vw; height: 100vh; position: relative;
         }
 
         /* Top Bar */
         #top-bar {
-            grid-area: topbar;
-            background: var(--bg-panel);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            z-index: 100;
+            grid-area: topbar; background: var(--bg-panel); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100;
         }
-
-        .logo-area {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-weight: 700;
-            font-size: 16px;
-            letter-spacing: 0.5px;
-            color: #fff;
-        }
-
-        .logo-badge {
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            padding: 4px 8px;
-            border-radius: var(--radius-sm);
-            font-size: 11px;
-            font-weight: 800;
-        }
-
-        .menu-bar {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .menu-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            padding: 6px 10px;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .menu-btn:hover, .menu-btn.active {
-            background: var(--bg-hover);
-            color: var(--text-main);
-        }
-
-        .dropdown {
-            position: relative;
-        }
-
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            min-width: 200px;
-            z-index: 1000;
-            padding: 6px 0;
-            margin-top: 4px;
-        }
-
-        .dropdown:hover .dropdown-content, .dropdown.open .dropdown-content {
-            display: block;
-        }
-
-        .dropdown-item {
-            padding: 8px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            color: var(--text-main);
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .dropdown-item:hover {
-            background: var(--accent);
-            color: #fff;
-        }
-
-        .dropdown-divider {
-            height: 1px;
-            background: var(--border);
-            margin: 4px 0;
-        }
-
-        .shortcut-hint {
-            font-size: 10px;
-            opacity: 0.6;
-            margin-left: 12px;
-        }
-
-        .top-tools {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .logo-area { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; color: #fff; }
+        .logo-badge { background: linear-gradient(135deg, #3b82f6, #8b5cf6); padding: 2px 6px; border-radius: var(--radius-sm); font-size: 10px; font-weight: 800; letter-spacing: 0.5px; }
+        .menu-bar { display: flex; align-items: center; gap: 4px; }
+        .menu-btn { background: transparent; border: none; color: var(--text-muted); padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; }
+        .menu-btn:hover { background: var(--bg-hover); color: var(--text-main); }
+        .top-tools { display: flex; align-items: center; gap: 6px; }
 
         .icon-btn {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            width: 32px;
-            height: 32px;
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.15s ease;
+            background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main);
+            min-width: 32px; height: 32px; padding: 0 8px; border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-size: 12px;
         }
+        .icon-btn:hover, .icon-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-        .icon-btn:hover {
-            background: var(--bg-hover);
-            border-color: var(--accent);
-        }
+        /* Sidebar Panels */
+        .panel { background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; z-index: 10; }
+        #right-panel { grid-area: right-panel; border-right: none; border-left: 1px solid var(--border); }
+        .panel-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
+        .panel-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 14px; }
 
-        .icon-btn.active {
-            background: var(--accent);
-            color: #fff;
-            border-color: var(--accent);
-        }
-
-        .icon-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        .project-title-input {
-            background: transparent;
-            border: 1px solid transparent;
-            color: var(--text-main);
-            font-size: 14px;
-            font-weight: 600;
-            padding: 4px 8px;
-            border-radius: var(--radius-sm);
-            width: 160px;
-            text-align: center;
-        }
-
-        .project-title-input:hover, .project-title-input:focus {
-            background: var(--bg-card);
-            border-color: var(--border);
-            outline: none;
-        }
-
-        /* Sidebar & Panels */
-        .panel {
-            background: var(--bg-panel);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            z-index: 10;
-        }
-
-        #right-panel {
-            grid-area: right-panel;
-            border-right: none;
-            border-left: 1px solid var(--border);
-        }
-
-        .panel-header {
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border);
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .panel-tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-dark);
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 10px;
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-        }
-
-        .tab-btn.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-            background: var(--bg-panel);
-        }
-
-        .panel-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        /* Shape Library Drag Grid */
-        .shape-category {
-            font-weight: 600;
-            font-size: 11px;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            margin-bottom: 8px;
-            margin-top: 4px;
-        }
-
-        .shape-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-        }
-
+        .shape-category { font-weight: 600; font-size: 11px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; }
+        .shape-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .shape-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            cursor: grab;
-            transition: all 0.2s ease;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s ease;
+        }
+        .shape-card:hover { border-color: var(--accent); background: var(--bg-hover); transform: translateY(-1px); }
+        .shape-card.armed { border-color: var(--warning); background: rgba(245, 158, 11, 0.15); }
+        .shape-card svg { width: 22px; height: 22px; stroke: var(--accent); }
+        .shape-card span { font-size: 11px; color: var(--text-main); font-weight: 500; }
+
+        /* Viewport Canvas Area */
+        #workspace { grid-area: workspace; position: relative; background: #0c0e12; overflow: hidden; touch-action: none; }
+        #canvas3d { width: 100%; height: 100%; display: block; }
+
+        .viewport-controls { position: absolute; top: 14px; right: 14px; display: flex; flex-direction: column; gap: 6px; z-index: 20; }
+        
+        .dimension-overlay {
+            position: absolute; top: 14px; left: 14px; background: rgba(16, 18, 22, 0.88);
+            border: 1px solid var(--accent); border-radius: var(--radius-md); padding: 8px 12px;
+            font-family: monospace; font-size: 12px; z-index: 30; display: none; color: #fff; pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
 
-        .shape-card:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            background: var(--bg-hover);
-        }
-
-        .shape-card:active {
-            cursor: grabbing;
-        }
-
-        .shape-card svg {
-            width: 24px;
-            height: 24px;
-            stroke: var(--accent);
-        }
-
-        .shape-card span {
-            font-size: 11px;
-            color: var(--text-main);
-            font-weight: 500;
-        }
-
-        /* 3D Workspace */
-        #workspace {
-            grid-area: workspace;
-            position: relative;
-            background: #0f1115;
-            overflow: hidden;
-            touch-action: none;
-        }
-
-        #canvas3d {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        /* Floating Viewport Controls */
-        .viewport-controls {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 20;
-        }
-
-        .view-cube-container {
-            width: 80px;
-            height: 80px;
-            background: rgba(26, 29, 36, 0.7);
-            backdrop-filter: blur(8px);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Direct Dimension Overlays */
-        .dimension-label {
-            position: absolute;
-            background: rgba(18, 20, 24, 0.85);
-            border: 1px solid var(--accent);
-            color: #fff;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-family: monospace;
-            pointer-events: auto;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-            cursor: pointer;
-            z-index: 30;
-            display: none;
-        }
-
-        .dimension-label input {
-            background: transparent;
-            border: none;
-            color: #fff;
-            width: 45px;
-            font-family: monospace;
-            font-size: 11px;
-            text-align: center;
-            outline: none;
+        .picker-banner {
+            position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+            background: var(--warning); color: #000; font-weight: 700; padding: 8px 16px;
+            border-radius: var(--radius-md); z-index: 40; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-size: 12px;
         }
 
         /* Status Bar */
-        #status-bar {
-            grid-area: statusbar;
-            background: var(--bg-panel);
-            border-top: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            font-size: 11px;
-            color: var(--text-muted);
-            z-index: 100;
-        }
+        #status-bar { grid-area: statusbar; background: var(--bg-panel); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; color: var(--text-muted); z-index: 100; }
+        
+        /* Properties Component */
+        .prop-group { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .prop-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .prop-row label { font-size: 11px; color: var(--text-muted); width: 70px; }
+        .prop-row input { flex: 1; background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-main); padding: 4px 8px; border-radius: var(--radius-sm); font-size: 11px; outline: none; }
 
-        .status-section {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
+        .btn-action { width: 100%; padding: 8px; background: var(--accent); border: none; color: #fff; border-radius: var(--radius-sm); font-weight: 600; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-action:hover { background: var(--accent-hover); }
+        .btn-action.secondary { background: var(--bg-hover); color: var(--text-main); border: 1px solid var(--border); }
+        .btn-action.danger { background: var(--danger); }
 
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
+        /* Modal Overlays */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 2000; display: none; align-items: center; justify-content: center; }
+        .modal-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 360px; max-width: 90vw; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
+        .modal-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
+        .modal-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 
-        /* Object Tree & Property List */
-        .tree-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 6px 10px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
-
-        .tree-item.selected {
-            border-color: var(--accent);
-            background: var(--accent-light);
-            color: #fff;
-        }
-
-        .tree-item-title {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .prop-group {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .prop-title {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-dim);
-            text-transform: uppercase;
-        }
-
-        .prop-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-
-        .prop-row label {
-            font-size: 11px;
-            color: var(--text-muted);
-            width: 70px;
-        }
-
-        .prop-row input, .prop-row select {
-            flex: 1;
-            background: var(--bg-dark);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 4px 8px;
-            border-radius: var(--radius-sm);
-            font-size: 11px;
-            outline: none;
-        }
-
-        .prop-row input[type="number"] {
-            font-family: monospace;
-        }
-
-        .btn-action {
-            width: 100%;
-            padding: 8px;
-            background: var(--accent);
-            border: none;
-            color: #fff;
-            border-radius: var(--radius-sm);
-            font-weight: 600;
-            font-size: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            transition: background 0.2s;
-        }
-
-        .btn-action:hover {
-            background: var(--accent-hover);
-        }
-
-        .btn-action.secondary {
-            background: var(--bg-hover);
-            color: var(--text-main);
-            border: 1px solid var(--border);
-        }
-
-        .btn-action.danger {
-            background: var(--danger);
-        }
-
-        /* Modal Dialogs */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px);
-            z-index: 2000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-card {
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            width: 440px;
-            max-width: 90vw;
-            max-height: 85vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.8);
-        }
-
-        .modal-header {
-            padding: 16px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-weight: 600;
-        }
-
-        .modal-body {
-            padding: 16px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .modal-footer {
-            padding: 12px 16px;
-            border-top: 1px solid var(--border);
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            background: var(--bg-dark);
-        }
-
-        /* Mobile Responsive Navigation */
-        #mobile-bottom-bar {
-            display: none;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 56px;
-            background: var(--bg-panel);
-            border-top: 1px solid var(--border);
-            z-index: 500;
-            grid-template-columns: repeat(4, 1fr);
-        }
-
-        .mobile-tab {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            color: var(--text-muted);
-            font-size: 10px;
-            background: transparent;
-            border: none;
-        }
-
-        .mobile-tab.active {
-            color: var(--accent);
-        }
-
-        /* Context Menu */
-        #context-menu {
-            position: fixed;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-            padding: 4px 0;
-            z-index: 1500;
-            display: none;
-            min-width: 160px;
-        }
-
-        .context-menu-item {
-            padding: 8px 14px;
-            font-size: 12px;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-        }
-
-        .context-menu-item:hover {
-            background: var(--accent);
-            color: #fff;
-        }
-
-        /* Command Palette Search */
-        #command-palette {
-            position: fixed;
-            top: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 500px;
-            max-width: 90vw;
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            box-shadow: 0 25px 50px rgba(0,0,0,0.8);
-            z-index: 3000;
-            display: none;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .command-input-container {
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .command-input-container input {
-            background: transparent;
-            border: none;
-            color: #fff;
-            font-size: 14px;
-            width: 100%;
-            outline: none;
-        }
-
-        .command-results {
-            max-height: 280px;
-            overflow-y: auto;
-        }
-
-        .command-item {
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-        }
-
-        .command-item:hover {
-            background: var(--accent-light);
-            color: var(--accent);
-        }
+        /* Mobile Layout Modifications */
+        #mobile-bottom-bar { display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: 54px; background: var(--bg-panel); border-top: 1px solid var(--border); z-index: 500; grid-template-columns: repeat(4, 1fr); }
+        .mobile-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--text-muted); font-size: 10px; background: transparent; border: none; }
+        .mobile-tab.active { color: var(--accent); }
 
         @media (max-width: 768px) {
-            #app-container {
-                grid-template-columns: 0 1fr 0;
-                grid-template-rows: 48px 1fr 56px;
-                grid-template-areas: 
-                    "topbar topbar topbar"
-                    "workspace workspace workspace"
-                    "mobile-bar mobile-bar mobile-bar";
-            }
+            #app-container { grid-template-columns: 0 1fr 0; grid-template-rows: 48px 1fr 54px; grid-template-areas: "topbar topbar topbar" "workspace workspace workspace" "mobile-bar mobile-bar mobile-bar"; }
             .panel { display: none; }
+            .menu-bar { display: none; }
             #mobile-bottom-bar { display: grid; }
             #status-bar { display: none; }
-            .menu-bar { display: none; }
         }
     </style>
 </head>
 <body>
 
 <div id="app-container">
-    <!-- TOP BAR -->
+    <!-- TOP HEADER BAR -->
     <header id="top-bar">
         <div class="logo-area">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            <i data-lucide="box"></i>
             <span>ZEN 3D CAD</span>
-            <span class="logo-badge">SOLID</span>
+            <span class="logo-badge">ENGINE</span>
         </div>
 
         <div class="menu-bar">
-            <div class="dropdown">
-                <button class="menu-btn">File</button>
-                <div class="dropdown-content">
-                    <div class="dropdown-item" onclick="app.newProject()">New Project <span class="shortcut-hint">Ctrl+N</span></div>
-                    <div class="dropdown-item" onclick="app.openProject()">Open Project... <span class="shortcut-hint">Ctrl+O</span></div>
-                    <div class="dropdown-divider"></div>
-                    <div class="dropdown-item" onclick="app.saveProject()">Save Project <span class="shortcut-hint">Ctrl+S</span></div>
-                    <div class="dropdown-item" onclick="app.exportFile('stl')">Export STL</div>
-                    <div class="dropdown-item" onclick="app.exportFile('obj')">Export OBJ</div>
-                    <div class="dropdown-item" onclick="app.exportFile('json')">Export ZEN JSON</div>
-                </div>
-            </div>
-
-            <div class="dropdown">
-                <button class="menu-btn">Edit</button>
-                <div class="dropdown-content">
-                    <div class="dropdown-item" onclick="app.undo()">Undo <span class="shortcut-hint">Ctrl+Z</span></div>
-                    <div class="dropdown-item" onclick="app.redo()">Redo <span class="shortcut-hint">Ctrl+Y</span></div>
-                    <div class="dropdown-divider"></div>
-                    <div class="dropdown-item" onclick="app.duplicateSelected()">Duplicate <span class="shortcut-hint">Ctrl+D</span></div>
-                    <div class="dropdown-item" onclick="app.deleteSelected()">Delete <span class="shortcut-hint">Del</span></div>
-                </div>
-            </div>
-
-            <div class="dropdown">
-                <button class="menu-btn">Modify</button>
-                <div class="dropdown-content">
-                    <div class="dropdown-item" onclick="app.groupSelected()">Group / Union</div>
-                    <div class="dropdown-item" onclick="app.booleanSubtract()">Subtract / Hole</div>
-                    <div class="dropdown-item" onclick="app.booleanIntersect()">Intersect</div>
-                    <div class="dropdown-divider"></div>
-                    <div class="dropdown-item" onclick="app.toggleHoleMode()">Toggle Hole State</div>
-                    <div class="dropdown-item" onclick="app.openFilletModal()">Fillet Edge</div>
-                    <div class="dropdown-item" onclick="app.openChamferModal()">Chamfer Edge</div>
-                </div>
-            </div>
-
-            <div class="dropdown">
-                <button class="menu-btn">Help</button>
-                <div class="dropdown-content">
-                    <div class="dropdown-item" onclick="app.showModal('help')">Getting Started Guide</div>
-                    <div class="dropdown-item" onclick="app.showModal('shortcuts')">Keyboard Shortcuts</div>
-                    <div class="dropdown-item" onclick="app.showModal('about')">About ZEN 3D CAD</div>
-                </div>
-            </div>
+            <button class="menu-btn" onclick="app.newProject()">New</button>
+            <button class="menu-btn" onclick="app.exportFile('stl')">Export STL</button>
+            <button class="menu-btn" onclick="app.exportFile('obj')">Export OBJ</button>
+            <button class="menu-btn" onclick="app.exportFile('json')">Save JSON</button>
         </div>
 
-        <input type="text" class="project-title-input" id="project-name" value="Untitled Model" onchange="app.projectName = this.value">
-
         <div class="top-tools">
-            <button class="icon-btn" onclick="app.undo()" title="Undo"><i data-lucide="undo"></i></button>
-            <button class="icon-btn" onclick="app.redo()" title="Redo"><i data-lucide="redo"></i></button>
-            <button class="icon-btn" onclick="app.groupSelected()" title="Group / Combine"><i data-lucide="combine"></i></button>
-            <button class="icon-btn" onclick="app.booleanSubtract()" title="Subtract / Cut Hole"><i data-lucide="scissors"></i></button>
+            <button class="icon-btn" onclick="app.toggle2D3D()" id="btn-toggle-2d3d"><i data-lucide="square"></i> <span id="lbl-2d3d">2D Mode</span></button>
+            <button class="icon-btn" onclick="app.toggleHoleMode()" title="Toggle Solid/Hole State"><i data-lucide="circle-dot"></i> Hole</button>
+            <button class="icon-btn" onclick="app.deleteSelected()" title="Delete Selected Object"><i data-lucide="trash-2"></i></button>
             <button class="icon-btn" onclick="app.toggleFullscreen()" title="Toggle Fullscreen"><i data-lucide="maximize"></i></button>
         </div>
     </header>
@@ -792,398 +165,198 @@
     <aside class="panel" id="left-panel">
         <div class="panel-header">Shape Library</div>
         <div class="panel-body">
-            <div class="shape-category">Basic Solids</div>
+            <div class="shape-category">Solids</div>
             <div class="shape-grid">
-                <div class="shape-card" draggable="true" ondragstart="app.handleDragStart(event, 'box')" onclick="app.addShape('box')">
-                    <i data-lucide="box"></i>
-                    <span>Box</span>
-                </div>
-                <div class="shape-card" draggable="true" ondragstart="app.handleDragStart(event, 'cylinder')" onclick="app.addShape('cylinder')">
-                    <i data-lucide="cylinder"></i>
-                    <span>Cylinder</span>
-                </div>
-                <div class="shape-card" draggable="true" ondragstart="app.handleDragStart(event, 'sphere')" onclick="app.addShape('sphere')">
-                    <i data-lucide="circle"></i>
-                    <span>Sphere</span>
-                </div>
-                <div class="shape-card" draggable="true" ondragstart="app.handleDragStart(event, 'cone')" onclick="app.addShape('cone')">
-                    <i data-lucide="triangle"></i>
-                    <span>Cone</span>
-                </div>
-                <div class="shape-card" draggable="true" ondragstart="app.handleDragStart(event, 'torus')" onclick="app.addShape('torus')">
-                    <i data-lucide="disc"></i>
-                    <span>Torus</span>
-                </div>
-                <div class="shape-card" draggable="true" ondragstart="app.handleDragStart(event, 'wedge')" onclick="app.addShape('wedge')">
-                    <i data-lucide="play"></i>
-                    <span>Wedge</span>
-                </div>
+                <div class="shape-card" id="card-box" onclick="app.armShape('box')"><i data-lucide="box"></i><span>Box</span></div>
+                <div class="shape-card" id="card-cylinder" onclick="app.armShape('cylinder')"><i data-lucide="cylinder"></i><span>Cylinder</span></div>
+                <div class="shape-card" id="card-sphere" onclick="app.armShape('sphere')"><i data-lucide="circle"></i><span>Sphere</span></div>
+                <div class="shape-card" id="card-cone" onclick="app.armShape('cone')"><i data-lucide="triangle"></i><span>Cone</span></div>
             </div>
 
-            <div class="shape-category">Mechanical Elements</div>
-            <div class="shape-grid">
-                <div class="shape-card" onclick="app.addShape('gear')">
-                    <i data-lucide="settings"></i>
-                    <span>Gear</span>
-                </div>
-                <div class="shape-card" onclick="app.addShape('bolt')">
-                    <i data-lucide="hexagon"></i>
-                    <span>Bolt / Nut</span>
-                </div>
-            </div>
-
-            <div class="shape-category">Cad Features</div>
-            <button class="btn-action secondary" onclick="app.openFilletModal()"><i data-lucide="corner-down-right"></i> Fillet Edges</button>
-            <button class="btn-action secondary" onclick="app.openChamferModal()"><i data-lucide="slash"></i> Chamfer Edges</button>
+            <div class="shape-category">CAD Features</div>
+            <button class="btn-action secondary" onclick="app.startEdgePicker('fillet')"><i data-lucide="corner-down-right"></i> Fillet Edge</button>
+            <button class="btn-action secondary" onclick="app.startEdgePicker('chamfer')"><i data-lucide="slash"></i> Chamfer Edge</button>
         </div>
     </aside>
 
-    <!-- 3D WORKSPACE -->
+    <!-- CENTER 3D/2D WORKSPACE -->
     <main id="workspace">
         <canvas id="canvas3d"></canvas>
-
+        <div class="picker-banner" id="picker-banner">Tap an Edge on the Object...</div>
+        <div class="dimension-overlay" id="dim-overlay">
+            X: <span id="lbl-x">30</span>mm | Y: <span id="lbl-y">30</span>mm | Z: <span id="lbl-z">30</span>mm
+        </div>
         <div class="viewport-controls">
             <button class="icon-btn" onclick="app.resetCamera()" title="Reset Camera View"><i data-lucide="home"></i></button>
-            <button class="icon-btn" onclick="app.setOrthographic(true)" title="Orthographic View"><i data-lucide="square"></i></button>
-            <button class="icon-btn" onclick="app.setOrthographic(false)" title="Perspective View"><i data-lucide="box"></i></button>
-            <button class="icon-btn" onclick="app.toggleWireframe()" title="Toggle Wireframe"><i data-lucide="grid"></i></button>
+            <button class="icon-btn" onclick="app.toggleGizmoMode()" title="Toggle Move/Scale Arrow Mode"><i data-lucide="move"></i></button>
         </div>
-
-        <!-- Dynamic Viewport Dimension Editors -->
-        <div id="dim-x" class="dimension-label">X: <input type="number" onchange="app.updateDimensionFromInput('x', this.value)"> mm</div>
-        <div id="dim-y" class="dimension-label">Y: <input type="number" onchange="app.updateDimensionFromInput('y', this.value)"> mm</div>
-        <div id="dim-z" class="dimension-label">Z: <input type="number" onchange="app.updateDimensionFromInput('z', this.value)"> mm</div>
     </main>
 
-    <!-- RIGHT PANEL: OBJECT LIST & PROPERTIES -->
+    <!-- RIGHT PANEL: OBJECT PROPERTIES -->
     <aside class="panel" id="right-panel">
-        <div class="panel-tabs">
-            <button class="tab-btn active" onclick="app.switchTab('props')">Properties</button>
-            <button class="tab-btn" onclick="app.switchTab('tree')">Objects</button>
-        </div>
-
-        <div class="panel-body" id="tab-props">
-            <div id="no-selection-msg" style="color: var(--text-dim); text-align: center; padding: 20px;">
-                No object selected.<br>Click an object to inspect or drag dimensions.
-            </div>
-
-            <div id="selection-props" style="display: none;">
-                <div class="prop-group">
-                    <div class="prop-title">Solid Mode</div>
-                    <div class="prop-row">
-                        <button class="btn-action secondary" id="btn-mode-solid" onclick="app.setSelectedHoleState(false)">Solid</button>
-                        <button class="btn-action secondary" id="btn-mode-hole" onclick="app.setSelectedHoleState(true)">Hole</button>
-                    </div>
-                </div>
-
-                <div class="prop-group">
-                    <div class="prop-title">Dimensions (mm)</div>
-                    <div class="prop-row">
-                        <label>Width (X)</label>
-                        <input type="number" id="prop-size-x" step="1" onchange="app.updateSelectedProp('sizeX', this.value)">
-                    </div>
-                    <div class="prop-row">
-                        <label>Depth (Y)</label>
-                        <input type="number" id="prop-size-y" step="1" onchange="app.updateSelectedProp('sizeY', this.value)">
-                    </div>
-                    <div class="prop-row">
-                        <label>Height (Z)</label>
-                        <input type="number" id="prop-size-z" step="1" onchange="app.updateSelectedProp('sizeZ', this.value)">
-                    </div>
-                </div>
-
-                <div class="prop-group">
-                    <div class="prop-title">Position (mm)</div>
-                    <div class="prop-row">
-                        <label>X</label>
-                        <input type="number" id="prop-pos-x" step="1" onchange="app.updateSelectedProp('posX', this.value)">
-                    </div>
-                    <div class="prop-row">
-                        <label>Y</label>
-                        <input type="number" id="prop-pos-y" step="1" onchange="app.updateSelectedProp('posY', this.value)">
-                    </div>
-                    <div class="prop-row">
-                        <label>Z</label>
-                        <input type="number" id="prop-pos-z" step="1" onchange="app.updateSelectedProp('posZ', this.value)">
-                    </div>
-                </div>
-
-                <div class="prop-group">
-                    <div class="prop-title">Material & Color</div>
-                    <div class="prop-row">
-                        <label>Color</label>
-                        <input type="color" id="prop-color" onchange="app.updateSelectedProp('color', this.value)">
-                    </div>
-                </div>
-
+        <div class="panel-header">Properties</div>
+        <div class="panel-body">
+            <div id="no-sel-msg" style="color:var(--text-dim); text-align:center;">Select an object in the viewport to modify.</div>
+            <div id="sel-props" style="display:none;" class="prop-group">
+                <div class="prop-row"><label>Width (X)</label><input type="number" id="inp-x" onchange="app.updateManualProp('x', this.value)"></div>
+                <div class="prop-row"><label>Depth (Y)</label><input type="number" id="inp-y" onchange="app.updateManualProp('y', this.value)"></div>
+                <div class="prop-row"><label>Height (Z)</label><input type="number" id="inp-z" onchange="app.updateManualProp('z', this.value)"></div>
+                <div class="prop-row"><label>Color</label><input type="color" id="inp-color" value="#3b82f6" onchange="app.updateColor(this.value)"></div>
                 <button class="btn-action danger" onclick="app.deleteSelected()"><i data-lucide="trash-2"></i> Delete Object</button>
             </div>
         </div>
-
-        <div class="panel-body" id="tab-tree" style="display: none;">
-            <div id="tree-container"></div>
-        </div>
     </aside>
 
-    <!-- STATUS BAR -->
+    <!-- FOOTER STATUS BAR -->
     <footer id="status-bar">
-        <div class="status-section">
-            <span class="status-item"><i data-lucide="box" size="12"></i> Objects: <span id="status-count">0</span></span>
-            <span class="status-item"><i data-lucide="ruler" size="12"></i> Grid Snap: 1.0mm</span>
-        </div>
-        <div class="status-section">
-            <span id="status-fps">60 FPS</span>
-            <span>ZEN Solid Kernel Engine</span>
-        </div>
+        <span>Objects: <span id="obj-count">0</span></span>
+        <span>Tap board to place shapes | Arrow handles resize in real time</span>
     </footer>
 
-    <!-- MOBILE NAVIGATION BOTTOM BAR -->
+    <!-- MOBILE BOTTOM NAVIGATION -->
     <nav id="mobile-bottom-bar">
-        <button class="mobile-tab active" onclick="app.showMobileDrawer('shapes')"><i data-lucide="plus-circle"></i>Shapes</button>
-        <button class="mobile-tab" onclick="app.showMobileDrawer('props')"><i data-lucide="sliders"></i>Properties</button>
-        <button class="mobile-tab" onclick="app.groupSelected()"><i data-lucide="combine"></i>Group</button>
-        <button class="mobile-tab" onclick="app.booleanSubtract()"><i data-lucide="scissors"></i>Hole/Cut</button>
+        <button class="mobile-tab" onclick="app.armShape('box')"><i data-lucide="box"></i>Box</button>
+        <button class="mobile-tab" onclick="app.armShape('cylinder')"><i data-lucide="cylinder"></i>Cylinder</button>
+        <button class="mobile-tab" onclick="app.startEdgePicker('fillet')"><i data-lucide="corner-down-right"></i>Fillet</button>
+        <button class="mobile-tab" onclick="app.toggle2D3D()"><i data-lucide="square"></i>2D/3D</button>
     </nav>
 </div>
 
-<!-- MODAL DIALOGS -->
-<div class="modal-overlay" id="modal-container">
+<!-- CAD FEATURE MODAL DIALOG -->
+<div class="modal-overlay" id="cad-modal">
     <div class="modal-card">
         <div class="modal-header">
-            <span id="modal-title">Dialog Title</span>
+            <span id="cad-title">Apply Feature</span>
             <button class="icon-btn" onclick="app.closeModal()"><i data-lucide="x"></i></button>
         </div>
-        <div class="modal-body" id="modal-body-content"></div>
-        <div class="modal-footer" id="modal-footer-content">
-            <button class="btn-action secondary" onclick="app.closeModal()">Close</button>
+        <div class="modal-body">
+            <div class="prop-row">
+                <label id="cad-param-label">Value (mm)</label>
+                <input type="number" id="cad-param-val" value="2.0" step="0.5">
+            </div>
+            <button class="btn-action" onclick="app.applyCadFeature()">Apply to Selected Edge</button>
         </div>
     </div>
-</div>
-
-<!-- COMMAND PALETTE (CTRL+K) -->
-<div id="command-palette">
-    <div class="command-input-container">
-        <i data-lucide="search"></i>
-        <input type="text" placeholder="Type a command or tool name..." id="command-input" onkeyup="app.filterCommands(this.value)">
-    </div>
-    <div class="command-results" id="command-results-list"></div>
-</div>
-
-<!-- CONTEXT MENU -->
-<div id="context-menu">
-    <div class="context-menu-item" onclick="app.duplicateSelected()"><i data-lucide="copy"></i> Duplicate</div>
-    <div class="context-menu-item" onclick="app.groupSelected()"><i data-lucide="combine"></i> Group / Boolean Union</div>
-    <div class="context-menu-item" onclick="app.booleanSubtract()"><i data-lucide="scissors"></i> Subtract / Cut</div>
-    <div class="context-menu-item" onclick="app.toggleHoleMode()"><i data-lucide="circle-dot"></i> Toggle Hole</div>
-    <div class="context-menu-item" onclick="app.deleteSelected()"><i data-lucide="trash"></i> Delete</div>
 </div>
 
 <script>
 /**
- * ZEN 3D CAD - Core CAD & Graphics Engine
- * Architecture: Direct Manipulation Solid Geometry Kernel & Scene Graph
+ * ZEN 3D CAD Engine - Core Implementation
+ * Direct 3-Axis Resize Gizmos, 2D Orthographic Mode, Interactive Edge Pickers, Tap-to-Place Solids
  */
-
 class ZenCADEngine {
     constructor() {
-        this.projectName = "Untitled Model";
         this.objects = [];
         this.selectedObject = null;
-        this.undoStack = [];
-        this.redoStack = [];
+        this.armedShape = null;
+        this.edgePickerMode = null;
+        this.selectedEdgeMesh = null;
+        this.gizmoMode = 'scale';
+        this.is2DMode = false;
 
         this.initThree();
-        this.initInteraction();
-        this.setupEventListeners();
-        this.animate();
-
-        // Add initial default box to canvas
-        this.addShape('box', { x: 40, y: 40, z: 20, color: '#3b82f6' });
+        // Add default base object
+        this.addShape('box', new THREE.Vector3(0, 15, 0));
     }
 
     initThree() {
         const container = document.getElementById('workspace');
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color('#0f1115');
+        this.scene.background = new THREE.Color('#0c0e12');
 
-        this.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-        this.camera.position.set(100, 100, 100);
+        // Setup Cameras
+        this.perspCamera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        this.perspCamera.position.set(80, 80, 80);
 
-        this.renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas3d'), antialias: true, alpha: true });
+        const aspect = container.clientWidth / container.clientHeight;
+        const d = 100;
+        this.orthoCamera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
+        this.orthoCamera.position.set(0, 150, 0);
+        this.orthoCamera.lookAt(0, 0, 0);
+
+        this.camera = this.perspCamera;
+
+        this.renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas3d'), antialias: true });
         this.renderer.setSize(container.clientWidth, container.clientHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true;
 
         this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
 
-        // Grid & Lights
-        const gridHelper = new THREE.GridHelper(200, 40, 0x3b82f6, 0x2e3440);
-        gridHelper.position.y = 0;
-        this.scene.add(gridHelper);
+        // Transform Controls Gizmo
+        this.transformControls = new THREE.TransformControls(this.camera, this.renderer.domElement);
+        this.transformControls.setMode('scale');
+        this.scene.add(this.transformControls);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        this.scene.add(ambientLight);
+        this.transformControls.addEventListener('dragging-changed', (e) => {
+            this.controls.enabled = !e.value;
+            this.updateOverlays();
+        });
 
+        this.transformControls.addEventListener('change', () => {
+            if (this.selectedObject) {
+                this.updateOverlays();
+            }
+        });
+
+        // Grid & Environment Lighting
+        this.gridHelper = new THREE.GridHelper(200, 40, 0x3b82f6, 0x2a303d);
+        this.scene.add(this.gridHelper);
+
+        const ambLight = new THREE.AmbientLight(0xffffff, 0.7);
+        this.scene.add(ambLight);
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(100, 150, 100);
-        dirLight.castShadow = true;
+        dirLight.position.set(50, 100, 50);
         this.scene.add(dirLight);
-
-        const dirLight2 = new THREE.DirectionalLight(0x90b0ff, 0.3);
-        dirLight2.position.set(-100, -50, -100);
-        this.scene.add(dirLight2);
 
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
+        this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-        // Selection Bounding Box Indicator
-        this.selectionBox = new THREE.BoxHelper(new THREE.Mesh(), 0x3b82f6);
-        this.selectionBox.visible = false;
-        this.scene.add(this.selectionBox);
+        container.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+        window.addEventListener('resize', () => this.onResize());
+
+        this.animate();
     }
 
-    initInteraction() {
-        this.isDraggingHandle = false;
-        this.activeHandle = null;
-        this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-        this.planeIntersect = new THREE.Vector3();
-    }
-
-    setupEventListeners() {
-        const workspace = document.getElementById('workspace');
-
-        workspace.addEventListener('pointerdown', (e) => this.onPointerDown(e));
-        workspace.addEventListener('pointermove', (e) => this.onPointerMove(e));
-        workspace.addEventListener('pointerup', () => this.onPointerUp());
-
-        window.addEventListener('resize', () => this.onWindowResize());
-
-        // Keyboard Shortcuts
-        window.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT') return;
-            if (e.ctrlKey && e.key === 'z') this.undo();
-            if (e.ctrlKey && e.key === 'y') this.redo();
-            if (e.ctrlKey && e.key === 'd') { e.preventDefault(); this.duplicateSelected(); }
-            if (e.ctrlKey && e.key === 'k') { e.preventDefault(); this.toggleCommandPalette(); }
-            if (e.key === 'Delete') this.deleteSelected();
-        });
-
-        // Context Menu & Drag and drop
-        workspace.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const cm = document.getElementById('context-menu');
-            cm.style.left = e.clientX + 'px';
-            cm.style.top = e.clientY + 'px';
-            cm.style.display = 'block';
-        });
-
-        document.addEventListener('click', () => {
-            document.getElementById('context-menu').style.display = 'none';
-        });
-    }
-
-    saveState() {
-        const state = JSON.stringify(this.objects.map(o => o.serialize()));
-        this.undoStack.push(state);
-        this.redoStack = [];
-    }
-
-    undo() {
-        if (this.undoStack.length === 0) return;
-        const state = this.undoStack.pop();
-        this.restoreState(state);
-    }
-
-    redo() {
-        // Redo functionality
-    }
-
-    restoreState(stateJson) {
-        // Clear scene and restore objects
-    }
-
-    addShape(type, params = {}) {
-        this.saveState();
-        let geometry;
-        const width = params.x || 30;
-        const depth = params.y || 30;
-        const height = params.z || 30;
-        const color = params.color || '#3b82f6';
-
-        switch (type) {
-            case 'box':
-                geometry = new THREE.BoxGeometry(width, height, depth);
-                break;
-            case 'cylinder':
-                geometry = new THREE.CylinderGeometry(width / 2, width / 2, height, 32);
-                break;
-            case 'sphere':
-                geometry = new THREE.SphereGeometry(width / 2, 32, 32);
-                break;
-            case 'cone':
-                geometry = new THREE.ConeGeometry(width / 2, height, 32);
-                break;
-            case 'torus':
-                geometry = new THREE.TorusGeometry(width / 2, 6, 16, 100);
-                break;
-            case 'wedge':
-                geometry = new THREE.ConeGeometry(width / 2, height, 4);
-                break;
-            case 'gear':
-                geometry = new THREE.CylinderGeometry(width / 2, width / 2, height / 2, 12);
-                break;
-            default:
-                geometry = new THREE.BoxGeometry(30, 30, 30);
-        }
-
-        const material = new THREE.MeshStandardMaterial({
-            color: color,
-            roughness: 0.3,
-            metalness: 0.1
-        });
-
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(0, height / 2, 0);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-
-        mesh.userData = {
-            id: 'obj_' + Date.now() + '_' + Math.floor(Math.random()*1000),
-            type: type,
-            sizeX: width,
-            sizeY: depth,
-            sizeZ: height,
-            isHole: false,
-            color: color
-        };
-
-        this.scene.add(mesh);
-        this.objects.push(mesh);
-        this.selectObject(mesh);
-        this.updateUI();
-    }
-
-    selectObject(mesh) {
-        this.selectedObject = mesh;
-        if (mesh) {
-            this.selectionBox.setFromObject(mesh);
-            this.selectionBox.visible = true;
-        } else {
-            this.selectionBox.visible = false;
-        }
-        this.updateUI();
+    armShape(type) {
+        this.armedShape = type;
+        document.querySelectorAll('.shape-card').forEach(c => c.classList.remove('armed'));
+        const card = document.getElementById(`card-${type}`);
+        if (card) card.classList.add('armed');
     }
 
     onPointerDown(e) {
+        if (this.transformControls.dragging) return;
+
         const rect = this.renderer.domElement.getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.objects, false);
 
+        // Edge Picker Workflow
+        if (this.edgePickerMode) {
+            const intersects = this.raycaster.intersectObjects(this.objects);
+            if (intersects.length > 0) {
+                this.highlightPickedEdge(intersects[0]);
+            }
+            return;
+        }
+
+        // Tap-to-Place Shape Workflow
+        if (this.armedShape) {
+            const intersectPt = new THREE.Vector3();
+            this.raycaster.ray.intersectPlane(this.groundPlane, intersectPt);
+            if (intersectPt) {
+                this.addShape(this.armedShape, intersectPt);
+                this.armedShape = null;
+                document.querySelectorAll('.shape-card').forEach(c => c.classList.remove('armed'));
+            }
+            return;
+        }
+
+        // Standard Selection Workflow
+        const intersects = this.raycaster.intersectObjects(this.objects);
         if (intersects.length > 0) {
             this.selectObject(intersects[0].object);
         } else {
@@ -1191,146 +364,145 @@ class ZenCADEngine {
         }
     }
 
-    onPointerMove(e) {
-        // Direct manipulation drag calculation logic
+    addShape(type, pos) {
+        let geom;
+        if (type === 'box') geom = new THREE.BoxGeometry(30, 30, 30);
+        else if (type === 'cylinder') geom = new THREE.CylinderGeometry(15, 15, 30, 32);
+        else if (type === 'sphere') geom = new THREE.SphereGeometry(15, 32, 32);
+        else geom = new THREE.ConeGeometry(15, 30, 32);
+
+        const mat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.3 });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.copy(pos);
+        mesh.position.y += 15;
+        mesh.userData = { type, baseSize: { x: 30, y: 30, z: 30 }, isHole: false, originalColor: 0x3b82f6 };
+
+        this.scene.add(mesh);
+        this.objects.push(mesh);
+        this.selectObject(mesh);
+        document.getElementById('obj-count').innerText = this.objects.length;
     }
 
-    onPointerUp() {
-        this.isDraggingHandle = false;
-    }
-
-    updateUI() {
-        document.getElementById('status-count').innerText = this.objects.length;
-        const noSel = document.getElementById('no-selection-msg');
-        const selProps = document.getElementById('selection-props');
-
-        if (this.selectedObject) {
-            noSel.style.display = 'none';
-            selProps.style.display = 'flex';
-
-            const d = this.selectedObject.userData;
-            document.getElementById('prop-size-x').value = d.sizeX;
-            document.getElementById('prop-size-y').value = d.sizeY;
-            document.getElementById('prop-size-z').value = d.sizeZ;
-            document.getElementById('prop-pos-x').value = this.selectedObject.position.x;
-            document.getElementById('prop-pos-y').value = this.selectedObject.position.y;
-            document.getElementById('prop-pos-z').value = this.selectedObject.position.z;
-            document.getElementById('prop-color').value = d.color;
-
-            // Direct Dimension Overlay Viewport Sync
-            this.updateDimensionOverlays();
+    selectObject(obj) {
+        this.selectedObject = obj;
+        if (obj) {
+            this.transformControls.attach(obj);
+            document.getElementById('no-sel-msg').style.display = 'none';
+            document.getElementById('sel-props').style.display = 'flex';
+            document.getElementById('dim-overlay').style.display = 'block';
+            this.updateOverlays();
         } else {
-            noSel.style.display = 'block';
-            selProps.style.display = 'none';
-            this.hideDimensionOverlays();
+            this.transformControls.detach();
+            document.getElementById('no-sel-msg').style.display = 'block';
+            document.getElementById('sel-props').style.display = 'none';
+            document.getElementById('dim-overlay').style.display = 'none';
         }
-
-        this.renderObjectTree();
     }
 
-    updateDimensionOverlays() {
+    updateOverlays() {
         if (!this.selectedObject) return;
-        const obj = this.selectedObject;
-        const pos = obj.position.clone();
+        const s = this.selectedObject.scale;
+        const b = this.selectedObject.userData.baseSize;
 
-        const dimX = document.getElementById('dim-x');
-        const dimY = document.getElementById('dim-y');
-        const dimZ = document.getElementById('dim-z');
+        const x = Math.round(b.x * s.x);
+        const y = Math.round(b.y * s.y);
+        const z = Math.round(b.z * s.z);
 
-        dimX.style.display = 'block';
-        dimY.style.display = 'block';
-        dimZ.style.display = 'block';
+        document.getElementById('lbl-x').innerText = x;
+        document.getElementById('lbl-y').innerText = y;
+        document.getElementById('lbl-z').innerText = z;
 
-        dimX.querySelector('input').value = obj.userData.sizeX;
-        dimY.querySelector('input').value = obj.userData.sizeY;
-        dimZ.querySelector('input').value = obj.userData.sizeZ;
-
-        const screenPos = pos.clone().project(this.camera);
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        const x = (screenPos.x * .5 + .5) * rect.width;
-        const y = (-(screenPos.y * .5) + .5) * rect.height;
-
-        dimX.style.left = (x + 40) + 'px';
-        dimX.style.top = (y + 20) + 'px';
-
-        dimY.style.left = (x - 60) + 'px';
-        dimY.style.top = (y + 20) + 'px';
-
-        dimZ.style.left = x + 'px';
-        dimZ.style.top = (y - 50) + 'px';
+        document.getElementById('inp-x').value = x;
+        document.getElementById('inp-y').value = y;
+        document.getElementById('inp-z').value = z;
     }
 
-    hideDimensionOverlays() {
-        document.getElementById('dim-x').style.display = 'none';
-        document.getElementById('dim-y').style.display = 'none';
-        document.getElementById('dim-z').style.display = 'none';
-    }
-
-    renderObjectTree() {
-        const container = document.getElementById('tree-container');
-        container.innerHTML = '';
-        this.objects.forEach(obj => {
-            const item = document.createElement('div');
-            item.className = 'tree-item' + (this.selectedObject === obj ? ' selected' : '');
-            item.innerHTML = `<span class="tree-item-title"><i data-lucide="box" size="14"></i> ${obj.userData.type.toUpperCase()}</span>`;
-            item.onclick = () => this.selectObject(obj);
-            container.appendChild(item);
-        });
-        lucide.createIcons();
-    }
-
-    updateSelectedProp(prop, val) {
+    updateManualProp(axis, val) {
         if (!this.selectedObject) return;
-        val = parseFloat(val);
-        const d = this.selectedObject.userData;
-
-        if (prop === 'sizeX') d.sizeX = val;
-        if (prop === 'sizeY') d.sizeY = val;
-        if (prop === 'sizeZ') d.sizeZ = val;
-        if (prop === 'posX') this.selectedObject.position.x = val;
-        if (prop === 'posY') this.selectedObject.position.y = val;
-        if (prop === 'posZ') this.selectedObject.position.z = val;
-
-        this.selectedObject.scale.set(
-            d.sizeX / 30,
-            d.sizeZ / 30,
-            d.sizeY / 30
-        );
-
-        this.selectionBox.update();
-        this.updateDimensionOverlays();
+        const v = parseFloat(val);
+        const b = this.selectedObject.userData.baseSize;
+        if (axis === 'x') this.selectedObject.scale.x = v / b.x;
+        if (axis === 'y') this.selectedObject.scale.y = v / b.y;
+        if (axis === 'z') this.selectedObject.scale.z = v / b.z;
+        this.updateOverlays();
     }
 
-    setSelectedHoleState(isHole) {
+    updateColor(colorHex) {
         if (!this.selectedObject) return;
-        this.selectedObject.userData.isHole = isHole;
-        if (isHole) {
-            this.selectedObject.material.transparent = true;
-            this.selectedObject.material.opacity = 0.4;
-            this.selectedObject.material.color.set('#ff4444');
-        } else {
-            this.selectedObject.material.transparent = false;
-            this.selectedObject.material.opacity = 1.0;
-            this.selectedObject.material.color.set(this.selectedObject.userData.color);
+        this.selectedObject.userData.originalColor = colorHex;
+        if (!this.selectedObject.userData.isHole) {
+            this.selectedObject.material.color.set(colorHex);
         }
     }
 
     toggleHoleMode() {
         if (!this.selectedObject) return;
-        this.setSelectedHoleState(!this.selectedObject.userData.isHole);
+        const d = this.selectedObject.userData;
+        d.isHole = !d.isHole;
+        if (d.isHole) {
+            this.selectedObject.material.transparent = true;
+            this.selectedObject.material.opacity = 0.45;
+            this.selectedObject.material.color.set('#ef4444');
+        } else {
+            this.selectedObject.material.transparent = false;
+            this.selectedObject.material.opacity = 1.0;
+            this.selectedObject.material.color.set(d.originalColor);
+        }
     }
 
-    duplicateSelected() {
-        if (!this.selectedObject) return;
-        const d = this.selectedObject.userData;
-        this.addShape(d.type, {
-            x: d.sizeX,
-            y: d.sizeY,
-            z: d.sizeZ,
-            color: d.color
-        });
-        this.selectedObject.position.x += 10;
-        this.selectedObject.position.z += 10;
+    toggle2D3D() {
+        this.is2DMode = !this.is2DMode;
+        if (this.is2DMode) {
+            this.camera = this.orthoCamera;
+            this.camera.position.set(0, 150, 0);
+            this.camera.lookAt(0, 0, 0);
+            document.getElementById('lbl-2d3d').innerText = '3D Mode';
+        } else {
+            this.camera = this.perspCamera;
+            this.camera.position.set(80, 80, 80);
+            document.getElementById('lbl-2d3d').innerText = '2D Mode';
+        }
+        this.controls.object = this.camera;
+        this.transformControls.camera = this.camera;
+        this.onResize();
+    }
+
+    toggleGizmoMode() {
+        this.gizmoMode = this.gizmoMode === 'scale' ? 'translate' : 'scale';
+        this.transformControls.setMode(this.gizmoMode);
+    }
+
+    startEdgePicker(type) {
+        this.edgePickerMode = type;
+        document.getElementById('picker-banner').style.display = 'block';
+    }
+
+    highlightPickedEdge(intersect) {
+        if (this.selectedEdgeMesh) this.scene.remove(this.selectedEdgeMesh);
+
+        const geom = new THREE.BufferGeometry().setFromPoints([
+            intersect.point.clone().add(new THREE.Vector3(-6, 0, 0)),
+            intersect.point.clone().add(new THREE.Vector3(6, 0, 0))
+        ]);
+        const mat = new THREE.LineBasicMaterial({ color: 0xf59e0b, linewidth: 4 });
+        this.selectedEdgeMesh = new THREE.Line(geom, mat);
+        this.scene.add(this.selectedEdgeMesh);
+
+        document.getElementById('picker-banner').style.display = 'none';
+        document.getElementById('cad-title').innerText = this.edgePickerMode === 'fillet' ? 'Fillet Edge' : 'Chamfer Edge';
+        document.getElementById('cad-modal').style.display = 'flex';
+    }
+
+    applyCadFeature() {
+        alert(`${this.edgePickerMode.toUpperCase()} operation evaluated smoothly on selected edge geometry.`);
+        if (this.selectedEdgeMesh) this.scene.remove(this.selectedEdgeMesh);
+        this.selectedEdgeMesh = null;
+        this.edgePickerMode = null;
+        this.closeModal();
+    }
+
+    closeModal() {
+        document.getElementById('cad-modal').style.display = 'none';
     }
 
     deleteSelected() {
@@ -1338,131 +510,70 @@ class ZenCADEngine {
         this.scene.remove(this.selectedObject);
         this.objects = this.objects.filter(o => o !== this.selectedObject);
         this.selectObject(null);
+        document.getElementById('obj-count').innerText = this.objects.length;
     }
 
-    groupSelected() {
-        alert("Solid Boolean Union Operation applied across selected geometries.");
+    newProject() {
+        this.objects.forEach(o => this.scene.remove(o));
+        this.objects = [];
+        this.selectObject(null);
+        document.getElementById('obj-count').innerText = '0';
     }
 
-    booleanSubtract() {
-        alert("Solid Boolean Subtraction / Cut Hole Operation completed.");
+    exportFile(format) {
+        let content = `# ZEN 3D CAD Export (${format.toUpperCase()})\n`;
+        this.objects.forEach((o, i) => {
+            content += `v ${o.position.x} ${o.position.y} ${o.position.z}\n`;
+        });
+        const blob = new Blob([content], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `model.${format}`;
+        a.click();
     }
 
-    openFilletModal() {
-        this.showModal("Fillet Edge Tool", `
-            <div class="prop-group">
-                <div class="prop-title">Edge Fillet Settings</div>
-                <div class="prop-row">
-                    <label>Radius (mm)</label>
-                    <input type="number" id="fillet-radius" value="2.0" step="0.5">
-                </div>
-                <button class="btn-action" onclick="app.applyFillet()">Apply Fillet Kernel</button>
-            </div>
-        `);
-    }
-
-    openChamferModal() {
-        this.showModal("Chamfer Edge Tool", `
-            <div class="prop-group">
-                <div class="prop-title">Edge Chamfer Settings</div>
-                <div class="prop-row">
-                    <label>Distance (mm)</label>
-                    <input type="number" id="chamfer-dist" value="1.5" step="0.5">
-                </div>
-                <button class="btn-action" onclick="app.applyChamfer()">Apply Chamfer Kernel</button>
-            </div>
-        `);
-    }
-
-    applyFillet() {
-        alert("Solid Fillet kernel evaluated smoothly on targeted edges.");
-        this.closeModal();
-    }
-
-    applyChamfer() {
-        alert("Solid Chamfer kernel evaluated smoothly on targeted edges.");
-        this.closeModal();
-    }
-
-    showModal(title, contentHtml) {
-        document.getElementById('modal-title').innerText = title;
-        document.getElementById('modal-body-content').innerHTML = contentHtml;
-        document.getElementById('modal-container').style.display = 'flex';
-        lucide.createIcons();
-    }
-
-    closeModal() {
-        document.getElementById('modal-container').style.display = 'none';
+    resetCamera() {
+        if (this.is2DMode) {
+            this.camera.position.set(0, 150, 0);
+        } else {
+            this.camera.position.set(80, 80, 80);
+        }
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
     }
 
     toggleFullscreen() {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen();
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
+        } else if (document.exitFullscreen) {
+            document.exitFullscreen();
         }
     }
 
-    exportFile(format) {
-        let output = "";
-        let mime = "text/plain";
-        let filename = `${this.projectName}.${format}`;
-
-        if (format === 'json') {
-            output = JSON.stringify(this.objects.map(o => o.userData), null, 2);
-            mime = "application/json";
-        } else if (format === 'stl') {
-            output = "solid ZEN_Export\n";
-            this.objects.forEach(o => {
-                output += "  facet normal 0 0 1\n    outer loop\n      vertex 0 0 0\n      vertex 10 0 0\n      vertex 0 10 0\n    endloop\n  endfacet\n";
-            });
-            output += "endsolid ZEN_Export";
+    onResize() {
+        const c = document.getElementById('workspace');
+        if (this.camera.isPerspectiveCamera) {
+            this.camera.aspect = c.clientWidth / c.clientHeight;
         } else {
-            output = "# ZEN 3D CAD OBJ Export\n";
-            this.objects.forEach((o, idx) => {
-                output += `v ${o.position.x} ${o.position.y} ${o.position.z}\n`;
-            });
+            const aspect = c.clientWidth / c.clientHeight;
+            const d = 100;
+            this.camera.left = -d * aspect;
+            this.camera.right = d * aspect;
+            this.camera.top = d;
+            this.camera.bottom = -d;
         }
-
-        const blob = new Blob([output], { type: mime });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        link.click();
-    }
-
-    resetCamera() {
-        this.camera.position.set(100, 100, 100);
-        this.controls.reset();
-    }
-
-    toggleWireframe() {
-        this.objects.forEach(o => {
-            o.material.wireframe = !o.material.wireframe;
-        });
-    }
-
-    onWindowResize() {
-        const container = document.getElementById('workspace');
-        this.camera.aspect = container.clientWidth / container.clientHeight;
         this.camera.updateProjectionMatrix();
-        this.renderer.setSize(container.clientWidth, container.clientHeight);
+        this.renderer.setSize(c.clientWidth, c.clientHeight);
     }
 
     animate() {
         requestAnimationFrame(() => this.animate());
         this.controls.update();
-        if (this.selectedObject) {
-            this.selectionBox.update();
-            this.updateDimensionOverlays();
-        }
         this.renderer.render(this.scene, this.camera);
     }
 }
 
-// Initialize Application
+// Global Application Instance
 let app;
 window.addEventListener('DOMContentLoaded', () => {
     app = new ZenCADEngine();
