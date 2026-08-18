@@ -422,6 +422,7 @@
                 <button class="btn btn-sm" id="btn-toggle-bottom">Btm Cu</button>
                 <button class="btn btn-sm" id="btn-toggle-inners">Inners</button>
                 <button class="btn btn-sm" id="btn-toggle-vias">Vias</button>
+                <button class="btn btn-sm" id="btn-toggle-testpads">Testpads</button>
             </div>
             <div id="layer-list-container"></div>
         </div>
@@ -679,9 +680,8 @@ class GenCADParser {
         let currentLayer = 'TOP';
         let currentShape = null;
         let currentComponent = null;
-        let currentTrackWidth = 0.008; // Inches
+        let currentTrackWidth = 0.008;
 
-        // Standard Layer Configurations
         const defaultLayers = [
             'BOARD', 'SILKSCREEN_TOP', 'SOLDERMASK_TOP', 'SOLDERPASTE_TOP', 
             'TOP', 'INNER1', 'INNER2', 'BOTTOM', 
@@ -698,13 +698,11 @@ class GenCADParser {
             const tokens = line.split(/\s+/);
             const cmd = tokens[0].toUpperCase();
 
-            // Handle Section Changes
             if (cmd.startsWith('$')) {
                 currentSection = cmd;
                 continue;
             }
-            
-            // Non-dollar command section switch (e.g. ARTWORK)
+
             if (cmd === 'ARTWORK') {
                 currentSection = 'ARTWORK';
                 currentLayer = tokens[2] ? model.normalizeLayerName(tokens[2]) : 'SILKSCREEN_TOP';
@@ -716,14 +714,11 @@ class GenCADParser {
                     continue;
                 }
 
-                // HEADER SECTION
                 if (currentSection === '$HEADER') {
                     if (cmd === 'USER' || cmd === 'DRAWING' || cmd === 'REVISION') {
                         model.metadata[cmd] = tokens.slice(1).join(' ');
                     }
                 }
-
-                // LAYERS SECTION
                 else if (currentSection === '$LAYERS') {
                     if (cmd === 'DEFINE') {
                         const canonicalName = tokens[1].toUpperCase();
@@ -736,8 +731,6 @@ class GenCADParser {
                         }
                     }
                 }
-
-                // BOARD OUTLINE
                 else if (currentSection === '$BOARD') {
                     if (cmd === 'LINE') {
                         const x1 = Units.toInches(parseFloat(tokens[1]), model.units);
@@ -757,16 +750,12 @@ class GenCADParser {
                         model.updateBounds(startX, startY); model.updateBounds(endX, endY);
                     }
                 }
-
-                // PADS SECTION
                 else if (currentSection === '$PADS') {
                     if (cmd === 'PAD') {
                         const padName = tokens[1];
                         model.pads.set(padName, { name: padName, shape: 'CIRCLE', width: 0.03, height: 0.03, drill: 0.015 });
                     }
                 }
-
-                // SHAPES
                 else if (currentSection === '$SHAPES') {
                     if (cmd === 'SHAPE') {
                         currentShape = { name: tokens[1], pins: [], lines: [] };
@@ -781,8 +770,6 @@ class GenCADParser {
                         });
                     }
                 }
-
-                // COMPONENTS SECTION
                 else if (currentSection === '$COMPONENTS') {
                     if (cmd === 'COMPONENT') {
                         currentComponent = {
@@ -801,8 +788,6 @@ class GenCADParser {
                         currentComponent.value = tokens.slice(1).join(' ');
                     }
                 }
-
-                // ROUTES / SIGNALS SECTION
                 else if (currentSection === '$ROUTES' || currentSection === '$SIGNALS') {
                     if (cmd === 'ROUTE' || cmd === 'SIGNAL') {
                         currentNet = tokens[1];
@@ -878,8 +863,6 @@ class GenCADParser {
                         model.updateBounds(x, y);
                     }
                 }
-
-                // ARTWORK SECTION
                 else if (currentSection === 'ARTWORK') {
                     if (cmd === 'TRACK') {
                         if (tokens[1].toLowerCase().startsWith('r')) {
@@ -1054,7 +1037,7 @@ class MeasurementManager {
 }
 
 /**
- * Optimized Canvas 2D PCB Renderer (Matrix-Transformed + Batched Draws)
+ * Canvas 2D PCB Renderer
  */
 class Renderer {
     constructor(camera, layerManager) {
@@ -1073,7 +1056,6 @@ class Renderer {
         ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, cssW, cssH);
 
-        // Calculate Viewport Bounds in CAD World Space for Frustum Culling
         const vMin = this.camera.screenToWorld(0, cssH);
         const vMax = this.camera.screenToWorld(cssW, 0);
         const viewBounds = {
@@ -1083,15 +1065,13 @@ class Renderer {
             maxY: Math.max(vMin.y, vMax.y)
         };
 
-        // 1. Draw Grid in Screen Space
         if (this.gridVisible) this.drawGrid(cssW, cssH);
 
-        // Apply World Matrix Transform (Natively renders in Inches!)
         ctx.save();
         ctx.translate(this.camera.panX, this.camera.panY);
         ctx.scale(this.camera.scale, -this.camera.scale);
 
-        // 2. Draw Board Outline (Only actual physical edge segments)
+        // Board Outline
         const boardLayer = this.layerManager.getLayer('BOARD');
         if (boardLayer.visible && model.boardOutline.length > 0) {
             ctx.strokeStyle = boardLayer.color;
@@ -1106,14 +1086,11 @@ class Renderer {
             ctx.stroke();
         }
 
-        // Helper: Batch Draw Copper Traces per Layer
         const drawLayerTraces = (layerKey) => {
             const layer = this.layerManager.getLayer(layerKey);
             if (!layer.visible) return;
 
             const isNetSelected = !!selectionState.selectedNet;
-
-            // Group traces by width
             const widthGroups = new Map();
 
             model.nets.forEach(net => {
@@ -1121,7 +1098,6 @@ class Renderer {
 
                 net.traces.forEach(trace => {
                     if (trace.layer !== layerKey) return;
-                    // Frustum cull
                     if (trace.bounds.maxX < viewBounds.minX || trace.bounds.minX > viewBounds.maxX ||
                         trace.bounds.maxY < viewBounds.minY || trace.bounds.minY > viewBounds.maxY) return;
 
@@ -1155,7 +1131,6 @@ class Renderer {
             ctx.globalAlpha = 1.0;
         };
 
-        // Helper: Batch Draw Artwork / Silkscreen per Layer
         const drawLayerArtwork = (layerKey) => {
             const layer = this.layerManager.getLayer(layerKey);
             if (!layer.visible || model.artwork.length === 0) return;
@@ -1182,13 +1157,10 @@ class Renderer {
             ctx.globalAlpha = 1.0;
         };
 
-        // 3. Multi-Layer Stackup Rendering Order
-        // Bottom Silkscreen
+        // Multi-Layer Stackup Order
         drawLayerArtwork('SILKSCREEN_BOTTOM');
-        // Bottom Copper
         drawLayerTraces('BOTTOM');
         
-        // Inner Layers
         this.layerManager.layers.forEach((layer, key) => {
             if (key !== 'TOP' && key !== 'BOTTOM' && key !== 'BOARD' && key !== 'VIAS' && key !== 'TESTPADS' && !key.startsWith('SILK')) {
                 drawLayerTraces(key);
@@ -1196,12 +1168,10 @@ class Renderer {
             }
         });
 
-        // Top Copper
         drawLayerTraces('TOP');
-        // Top Silkscreen
         drawLayerArtwork('SILKSCREEN_TOP');
 
-        // 4. Vias
+        // Vias
         const viaLayer = this.layerManager.getLayer('VIAS');
         if (viaLayer.visible) {
             model.vias.forEach(via => {
@@ -1225,26 +1195,27 @@ class Renderer {
             });
         }
 
-        // 5. Testpoints
+        // Testpoints
         const tpLayer = this.layerManager.getLayer('TESTPADS');
-        if (tpLayer.visible) {
-            model.testpoints.forEach(tp => {
-                if (tp.x < viewBounds.minX || tp.x > viewBounds.maxX || tp.y < viewBounds.minY || tp.y > viewBounds.maxY) return;
+        model.testpoints.forEach(tp => {
+            const layer = this.layerManager.getLayer(tp.layer || 'TESTPADS');
+            if (!layer || !layer.visible) return;
 
-                const isSelected = (selectionState.selectedNet === tp.net);
-                const r = Math.max(4 / this.camera.scale, tp.dia / 2);
+            if (tp.x < viewBounds.minX || tp.x > viewBounds.maxX || tp.y < viewBounds.minY || tp.y > viewBounds.maxY) return;
 
-                ctx.beginPath();
-                ctx.arc(tp.x, tp.y, r, 0, Math.PI * 2);
-                ctx.fillStyle = isSelected ? '#39ff14' : tpLayer.color;
-                ctx.fill();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1.5 / this.camera.scale;
-                ctx.stroke();
-            });
-        }
+            const isSelected = (selectionState.selectedNet === tp.net);
+            const r = Math.max(4 / this.camera.scale, tp.dia / 2);
 
-        // 6. Hover Highlight
+            ctx.beginPath();
+            ctx.arc(tp.x, tp.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = isSelected ? '#39ff14' : (tpLayer.visible ? tpLayer.color : layer.color);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5 / this.camera.scale;
+            ctx.stroke();
+        });
+
+        // Hover Highlight
         if (hoverEntity) {
             ctx.save();
             ctx.strokeStyle = '#00ffff';
@@ -1257,9 +1228,9 @@ class Renderer {
             ctx.restore();
         }
 
-        ctx.restore(); // Restore world transform
+        ctx.restore();
 
-        // 7. Render Measurement Overlay in Screen Space
+        // Measurement Line Overlay
         if (measureState.active && measureState.p1) {
             ctx.save();
             const p1 = this.camera.worldToScreen(measureState.p1.x, measureState.p1.y);
@@ -1372,7 +1343,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // File Drop & Select
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
 
@@ -1389,7 +1359,6 @@ class GenCADApp {
             if (e.dataTransfer.files.length > 0) this.loadFile(e.dataTransfer.files[0]);
         });
 
-        // Mouse & Pointer Navigation
         let isDragging = false;
         let dragDistance = 0;
         let lastMouse = { x: 0, y: 0 };
@@ -1431,7 +1400,6 @@ class GenCADApp {
             this.requestRender();
         }, { passive: false });
 
-        // Toolbars & Action Buttons
         document.getElementById('btn-fit').addEventListener('click', () => {
             this.camera.fitBounds(this.model.bounds);
             this.updateHUD();
@@ -1454,7 +1422,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // Measurement Mode
         const measureBtn = document.getElementById('btn-measure');
         const measureBanner = document.getElementById('measure-banner');
         
@@ -1474,7 +1441,6 @@ class GenCADApp {
         measureBtn.addEventListener('click', toggleMeasure);
         document.getElementById('btn-exit-measure').addEventListener('click', toggleMeasure);
 
-        // Sidebar Collapsibles
         document.getElementById('toggle-left').addEventListener('click', () => {
             document.getElementById('sidebar-left').classList.toggle('collapsed-left');
         });
@@ -1482,7 +1448,6 @@ class GenCADApp {
             document.getElementById('sidebar-right').classList.toggle('collapsed-right');
         });
 
-        // Unit Selector
         const unitSel = document.getElementById('unit-selector');
         unitSel.addEventListener('change', (e) => {
             this.currentUnit = e.target.value;
@@ -1492,7 +1457,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // Layer Quick Toggles
         document.getElementById('btn-show-all').addEventListener('click', () => {
             this.layerManager.layers.forEach(l => l.visible = true);
             this.renderLayerUI();
@@ -1504,7 +1468,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // OUTLINE Layer Quick Toggle
         document.getElementById('btn-toggle-outline').addEventListener('click', () => {
             const boardLayer = this.layerManager.getLayer('BOARD');
             boardLayer.visible = !boardLayer.visible;
@@ -1512,7 +1475,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // TOP SILK Layer Quick Toggle
         document.getElementById('btn-toggle-top-silk').addEventListener('click', () => {
             const layer = this.layerManager.getLayer('SILKSCREEN_TOP');
             layer.visible = !layer.visible;
@@ -1520,7 +1482,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // BOTTOM SILK Layer Quick Toggle
         document.getElementById('btn-toggle-btm-silk').addEventListener('click', () => {
             const layer = this.layerManager.getLayer('SILKSCREEN_BOTTOM');
             layer.visible = !layer.visible;
@@ -1528,7 +1489,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // TOP COPPER Quick Toggle
         document.getElementById('btn-toggle-top').addEventListener('click', () => {
             const topLayer = this.layerManager.getLayer('TOP');
             topLayer.visible = !topLayer.visible;
@@ -1536,7 +1496,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // BOTTOM COPPER Quick Toggle
         document.getElementById('btn-toggle-bottom').addEventListener('click', () => {
             const btmLayer = this.layerManager.getLayer('BOTTOM');
             btmLayer.visible = !btmLayer.visible;
@@ -1544,7 +1503,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // INNERS Layer Quick Toggle
         document.getElementById('btn-toggle-inners').addEventListener('click', () => {
             const innerKeys = Array.from(this.layerManager.layers.keys()).filter(k => k.startsWith('INNER'));
             const anyVis = innerKeys.some(key => this.layerManager.getLayer(key).visible);
@@ -1555,7 +1513,6 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // VIAS Layer Quick Toggle
         document.getElementById('btn-toggle-vias').addEventListener('click', () => {
             const viaLayer = this.layerManager.getLayer('VIAS');
             viaLayer.visible = !viaLayer.visible;
@@ -1563,7 +1520,13 @@ class GenCADApp {
             this.requestRender();
         });
 
-        // Diagnostics
+        document.getElementById('btn-toggle-testpads').addEventListener('click', () => {
+            const tpLayer = this.layerManager.getLayer('TESTPADS');
+            tpLayer.visible = !tpLayer.visible;
+            this.renderLayerUI();
+            this.requestRender();
+        });
+
         document.getElementById('btn-view-diag').addEventListener('click', () => {
             document.getElementById('modal-diagnostics').classList.remove('hidden');
         });
@@ -1571,15 +1534,12 @@ class GenCADApp {
             document.getElementById('modal-diagnostics').classList.add('hidden');
         });
 
-        // Export PNG
         document.getElementById('btn-export').addEventListener('click', () => this.exportPNG());
 
-        // Search Input
         document.getElementById('search-input').addEventListener('input', (e) => {
             this.filterLists(e.target.value);
         });
 
-        // Keyboard Shortcuts
         window.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT') return;
             const k = e.key.toUpperCase();
@@ -1635,6 +1595,10 @@ class GenCADApp {
         let found = null;
 
         for (const item of candidates) {
+            // STRICT LAYER VISIBILITY CHECK (Skip hidden layers)
+            const layer = this.layerManager.getLayer(item.layer);
+            if (!layer || !layer.visible) continue;
+
             if (item.type === 'TESTPOINT' || item.type === 'VIA') {
                 if (Geometry.dist(cadP.x, cadP.y, item.x, item.y) <= (item.dia || item.outerDia || 0.02)) {
                     found = item; break;
