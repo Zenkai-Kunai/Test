@@ -2,320 +2,1956 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orthogonal Schematic Visualizer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Professional GenCAD PCB Inspector</title>
     <style>
         :root {
-            --bg: #ffffff;
-            --grid: #f1f5f9;
-            --text: #1e293b;
+            --bg-dark: #0f1117;
+            --bg-viewport: #141722;
+            --panel-bg: rgba(22, 27, 38, 0.92);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --panel-header-bg: rgba(30, 36, 51, 0.95);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --highlight: #39ff14;
+            --highlight-bg: rgba(57, 255, 20, 0.15);
+            --danger: #f43f5e;
+            --warning: #f59e0b;
+            --sidebar-width: 320px;
+            --font-mono: "JetBrains Mono", "SF Mono", "Consolas", monospace;
         }
-        body {
-            font-family: system-ui, sans-serif;
+
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+        }
+
+        #app {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Sidebars */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100%;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-right: 1px solid var(--panel-border);
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-        .header {
-            padding: 15px;
-            background: white;
-            border-bottom: 1px solid #ccc;
             z-index: 10;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), margin-left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            flex-shrink: 0;
         }
-        .controls {
+
+        .sidebar.right {
+            border-right: none;
+            border-left: 1px solid var(--panel-border);
+        }
+
+        .sidebar.collapsed-left {
+            margin-left: calc(-1 * var(--sidebar-width));
+        }
+
+        .sidebar.collapsed-right {
+            margin-right: calc(-1 * var(--sidebar-width));
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            background: var(--panel-header-bg);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--panel-border);
             display: flex;
-            gap: 10px;
-            margin-top: 10px;
+            justify-content: space-between;
+            align-items: center;
         }
-        button, input {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            font-size: 13px;
         }
-        button {
-            background: #2563eb;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
+
+        .panel-body::-webkit-scrollbar {
+            width: 6px;
         }
-        #canvas-container {
-            flex-grow: 1;
+
+        .panel-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+
+        /* Viewport Canvas */
+        #viewport-container {
+            flex: 1;
+            height: 100%;
             position: relative;
-            cursor: grab;
+            background: radial-gradient(circle at center, #1a202c 0%, #0d1117 100%);
             overflow: hidden;
-            background-color: var(--bg);
-            /* Schematic Grid Background */
-            background-image: 
-                linear-gradient(var(--grid) 1px, transparent 1px),
-                linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-            background-size: 20px 20px;
         }
-        #canvas-container:active { cursor: grabbing; }
-        svg { width: 100%; height: 100%; display: block; }
-        
-        /* Schematic Styles */
-        .wire { stroke: #0056b3; stroke-width: 1.5px; fill: none; stroke-linejoin: round; }
-        .label { font-size: 10px; fill: #000; font-family: monospace; pointer-events: none; text-anchor: middle;}
-        .net-node { fill: #0056b3; }
-        .sym-stroke { stroke: #000; stroke-width: 1.5px; fill: none; stroke-linejoin: round;}
-        .ic-box { fill: #fff; stroke: #000; stroke-width: 1.5px; }
-        
-        #loading {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.8); color: white;
-            padding: 10px 20px; border-radius: 8px; display: none;
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Floating Controls & Toolbars */
+        .toolbar {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 6px;
+            display: flex;
+            gap: 6px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 5;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .btn.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .btn-sm {
+            padding: 3px 8px;
+            font-size: 11px;
+        }
+
+        .toggle-sidebar-btn {
+            position: absolute;
+            top: 14px;
+            z-index: 6;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        #toggle-left { left: 14px; }
+        #toggle-right { right: 14px; }
+
+        /* HUD Status Bar */
+        .status-hud {
+            position: absolute;
+            bottom: 14px;
+            left: 14px;
+            right: 14px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 12px;
+            font-family: var(--font-mono);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            backdrop-filter: blur(12px);
+            z-index: 5;
+            gap: 12px;
+        }
+
+        .hud-group {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        /* Layer Manager Items */
+        .layer-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid transparent;
+        }
+
+        .layer-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .layer-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 10px;
+            border: 1px solid rgba(255,255,255,0.3);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .layer-name {
+            flex: 1;
+            font-size: 12px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .layer-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .opacity-slider {
+            width: 50px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        /* Input Controls */
+        .search-box {
+            width: 100%;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            color: #fff;
+            font-size: 12px;
+            margin-bottom: 10px;
+            outline: none;
+        }
+
+        .search-box:focus {
+            border-color: var(--accent);
+        }
+
+        /* Data Tables for Inspector */
+        .prop-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-bottom: 12px;
+        }
+
+        .prop-table td {
+            padding: 4px 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .prop-table tr td:first-child {
+            color: var(--text-muted);
+            width: 40%;
+            font-weight: 600;
+        }
+
+        .prop-table tr td:last-child {
+            font-family: var(--font-mono);
+            word-break: break-all;
+        }
+
+        /* Item Lists */
+        .list-item {
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+            background: rgba(255,255,255,0.02);
+        }
+
+        .list-item:hover, .list-item.active {
+            background: var(--accent);
+            color: #000;
+            font-weight: 700;
+        }
+
+        /* Overlay / Modal */
+        .modal-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(10, 12, 16, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 20px;
+        }
+
+        .modal-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            margin: 16px 0;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            background: rgba(0,0,0,0.5);
+            padding: 12px;
+            border-radius: 6px;
+            color: var(--warning);
+            white-space: pre-wrap;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Measurement HUD Banner */
+        .measure-banner {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(245, 158, 11, 0.9);
+            color: #000;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            z-index: 5;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        /* Tooltip */
+        #tooltip {
+            position: absolute;
+            padding: 8px 12px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--accent);
+            color: #fff;
+            border-radius: 6px;
+            font-size: 11px;
+            pointer-events: none;
+            display: none;
+            z-index: 50;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h2 style="margin:0;">Orthogonal Schematic Generator</h2>
-        <p style="margin:5px 0 0 0; font-size:14px; color:#666;">Lines are routed at 90-degree angles and components snap to grid.</p>
-        <div class="controls">
-            <input type="file" id="fileInput" accept=".txt,.board,*/*" />
-            <button onclick="generateDiagram()">Process Layout</button>
-            <button onclick="resetView()" style="background: #475569;">Center View</button>
+<div id="app">
+    <button class="toggle-sidebar-btn" id="toggle-left" title="Toggle Layer Panel [L]">☰</button>
+    <button class="toggle-sidebar-btn" id="toggle-right" title="Toggle Inspector [N]">ℹ</button>
+
+    <div class="sidebar" id="sidebar-left">
+        <div class="panel-header">
+            <span>Layer Manager</span>
+            <div style="display:flex; gap:4px;">
+                <button class="btn btn-sm" id="btn-show-all">All</button>
+                <button class="btn btn-sm" id="btn-hide-all">None</button>
+            </div>
+        </div>
+        <div class="panel-body">
+            <div style="display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap;">
+                <button class="btn btn-sm" id="btn-toggle-outline">Outline</button>
+                <button class="btn btn-sm" id="btn-toggle-top-silk">Top Silk</button>
+                <button class="btn btn-sm" id="btn-toggle-btm-silk">Btm Silk</button>
+                <button class="btn btn-sm" id="btn-toggle-top">Top Cu</button>
+                <button class="btn btn-sm" id="btn-toggle-bottom">Btm Cu</button>
+                <button class="btn btn-sm" id="btn-toggle-inners">Inners</button>
+                <button class="btn btn-sm" id="btn-toggle-vias">Vias</button>
+            </div>
+            <div id="layer-list-container"></div>
+        </div>
+        <div class="panel-header" style="border-top: 1px solid var(--panel-border);">
+            <span>Diagnostics</span>
+            <button class="btn btn-sm" id="btn-view-diag">Logs</button>
+        </div>
+        <div class="panel-body" style="max-height: 120px; font-size:11px;" id="file-info-summary">
+            No file loaded.
         </div>
     </div>
 
-    <div id="canvas-container">
-        <svg id="circuitSvg">
-            <defs>
-                <!-- Standard Schematic Symbols -->
-                <g id="sym-R" transform="translate(-15, -5)">
-                    <path d="M 0,5 L 5,5 L 7,0 L 11,10 L 15,0 L 19,10 L 23,0 L 25,5 L 30,5" class="sym-stroke"/>
-                </g>
-                <g id="sym-C" transform="translate(-10, -10)">
-                    <line x1="0" y1="10" x2="8" y2="10" class="sym-stroke" />
-                    <line x1="8" y1="2" x2="8" y2="18" class="sym-stroke" />
-                    <line x1="12" y1="2" x2="12" y2="18" class="sym-stroke" />
-                    <line x1="12" y1="10" x2="20" y2="10" class="sym-stroke" />
-                </g>
-                <g id="sym-U" transform="translate(-20, -20)">
-                    <rect x="0" y="0" width="40" height="40" class="ic-box" />
-                </g>
-            </defs>
-            <g id="viewport" transform="translate(0,0) scale(1)"></g>
-        </svg>
-        <div id="loading">Calculating Grid Layout...</div>
+    <div id="viewport-container">
+        <div class="toolbar">
+            <button class="btn" id="btn-open-file">📂 Open .CAD</button>
+            <button class="btn" id="btn-fit" title="Fit Board [F]">🔍 Fit</button>
+            <button class="btn" id="btn-zoom-in">➕</button>
+            <button class="btn" id="btn-zoom-out">➖</button>
+            <button class="btn" id="btn-measure" title="Measure Distance [M]">📏 Measure</button>
+            <button class="btn" id="btn-grid" title="Toggle Grid [G]">🌐 Grid</button>
+            <button class="btn" id="btn-clear-sel" title="Clear Selection [Esc]">❌ Clear</button>
+            <button class="btn" id="btn-export">📷 PNG</button>
+        </div>
+
+        <div class="measure-banner hidden" id="measure-banner">
+            <span>📏 MEASURE MODE: Click two points to measure distance</span>
+            <button class="btn btn-sm" id="btn-exit-measure" style="background:#000; color:#fff;">Exit</button>
+        </div>
+
+        <canvas id="cadCanvas"></canvas>
+
+        <div class="status-hud">
+            <div class="hud-group">
+                <span id="hud-coords">X: 0.000 in | Y: 0.000 in</span>
+                <select id="unit-selector" style="background:rgba(0,0,0,0.5); color:#fff; border:1px solid var(--panel-border); border-radius:4px; padding:2px 4px; font-size:11px; cursor:pointer;">
+                    <option value="INCH">INCH</option>
+                    <option value="MM">MM</option>
+                    <option value="MIL">MIL</option>
+                </select>
+            </div>
+            <div class="hud-group">
+                <span id="hud-zoom">Zoom: 100%</span>
+                <span id="hud-selected-net">Net: None</span>
+            </div>
+        </div>
+
+        <div id="tooltip"></div>
+
+        <div class="modal-overlay" id="drop-zone">
+            <div class="modal-card" style="text-align: center; align-items: center;">
+                <div style="font-size: 48px; margin-bottom: 12px; color: var(--accent);">📐</div>
+                <h2>Professional GenCAD Inspector</h2>
+                <p style="color: var(--text-muted); margin: 12px 0 20px 0;">
+                    Drag & Drop any <b>.CAD</b> file here, or click to browse.
+                </p>
+                <button class="btn" id="btn-drop-select" style="padding: 10px 24px; font-size: 14px;">Select GenCAD File</button>
+                <input type="file" id="file-input" accept=".cad,.txt" style="display: none;">
+            </div>
+        </div>
+
+        <div class="modal-overlay hidden" id="modal-diagnostics">
+            <div class="modal-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3>Parser Diagnostics & Warnings</h3>
+                    <button class="btn btn-sm" id="btn-close-diag">✕ Close</button>
+                </div>
+                <div class="modal-body" id="diag-log-content">No warnings.</div>
+            </div>
+        </div>
     </div>
 
-    <script>
-        let nodes = [];
-        let edges = [];
-        const VIRTUAL_WIDTH = 6000;
-        const VIRTUAL_HEIGHT = 6000;
-        const GRID_SIZE = 40; // Snap size
+    <div class="sidebar right" id="sidebar-right">
+        <div class="panel-header">
+            <span>Inspector</span>
+        </div>
+        <div class="panel-body">
+            <input type="text" class="search-box" id="search-input" placeholder="Search Nets, Components, Testpoints...">
 
-        let currentScale = 1, currentX = 0, currentY = 0;
-        let isDragging = false, startDragX = 0, startDragY = 0;
+            <div id="object-inspector-container">
+                <div style="color: var(--text-muted); font-size: 11px; text-align: center; padding: 12px 0;">
+                    Click any trace, pad, via, or component to inspect properties.
+                </div>
+            </div>
 
-        function getComponentType(id) {
-            id = id.toUpperCase();
-            if (id.startsWith('R')) return 'R';
-            if (id.startsWith('C')) return 'C';
-            return 'U'; 
+            <div class="panel-header" style="margin: 12px -12px 8px -12px; padding: 8px 12px;">
+                <span>Nets (<span id="net-count">0</span>)</span>
+            </div>
+            <div id="net-list-container" style="max-height: 250px; overflow-y: auto;"></div>
+
+            <div class="panel-header" style="margin: 12px -12px 8px -12px; padding: 8px 12px;">
+                <span>Components (<span id="comp-count">0</span>)</span>
+            </div>
+            <div id="comp-list-container" style="max-height: 200px; overflow-y: auto;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * Centralized Unit Conversion System
+ */
+const Units = {
+    INCH: 'INCH',
+    MM: 'MM',
+    MIL: 'MIL',
+    FACTOR: {
+        INCH: 1.0,
+        MM: 0.03937007874015748,
+        MIL: 0.001,
+        THOU: 0.001
+    },
+    toInches(val, unitName) {
+        if (typeof val !== 'number' || isNaN(val)) return 0;
+        const u = (unitName || 'INCH').toUpperCase();
+        const scale = this.FACTOR[u] || 1.0;
+        return val * scale;
+    },
+    fromInches(valInInches, targetUnit) {
+        const u = (targetUnit || 'INCH').toUpperCase();
+        if (u === 'MM') return valInInches * 25.4;
+        if (u === 'MIL' || u === 'THOU') return valInInches * 1000.0;
+        return valInInches;
+    },
+    format(valInInches, targetUnit, decimals = 3) {
+        const val = this.fromInches(valInInches, targetUnit);
+        return `${val.toFixed(decimals)} ${targetUnit.toLowerCase()}`;
+    }
+};
+
+/**
+ * 2D Geometry & Math Engine
+ */
+const Geometry = {
+    dist(x1, y1, x2, y2) {
+        return Math.hypot(x2 - x1, y2 - y1);
+    },
+    distToSegment(p, v, w) {
+        const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
+        if (l2 === 0) return this.dist(p.x, p.y, v.x, v.y);
+        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return this.dist(p.x, p.y, v.x + t * (w.x - v.x), v.y + t * (w.y - v.y));
+    }
+};
+
+/**
+ * Spatial Hash Grid Index
+ */
+class SpatialIndex {
+    constructor(cellSize = 0.2) {
+        this.cellSize = cellSize;
+        this.grid = new Map();
+    }
+
+    clear() {
+        this.grid.clear();
+    }
+
+    _key(cx, cy) {
+        return `${cx},${cy}`;
+    }
+
+    insert(item) {
+        const b = item.bounds;
+        if (!b) return;
+        const minX = Math.floor(b.minX / this.cellSize);
+        const maxX = Math.floor(b.maxX / this.cellSize);
+        const minY = Math.floor(b.minY / this.cellSize);
+        const maxY = Math.floor(b.maxY / this.cellSize);
+
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                const k = this._key(x, y);
+                if (!this.grid.has(k)) this.grid.set(k, []);
+                this.grid.get(k).push(item);
+            }
         }
+    }
 
-        function parseBoardFile(text) {
-            nodes = []; edges = [];
-            const nodeMap = new Map();
+    queryPoint(p, radius = 0.01) {
+        const minX = Math.floor((p.x - radius) / this.cellSize);
+        const maxX = Math.floor((p.x + radius) / this.cellSize);
+        const minY = Math.floor((p.y - radius) / this.cellSize);
+        const maxY = Math.floor((p.y + radius) / this.cellSize);
 
-            function addNode(id, isNet) {
-                if (!nodeMap.has(id)) {
-                    const node = { 
-                        id: id, isNet: isNet, compType: isNet ? 'NET' : getComponentType(id),
-                        x: (VIRTUAL_WIDTH/2) + (Math.random() - 0.5) * 2000, 
-                        y: (VIRTUAL_HEIGHT/2) + (Math.random() - 0.5) * 2000, 
-                        vx: 0, vy: 0 
-                    };
-                    nodes.push(node);
-                    nodeMap.set(id, node);
+        const candidates = new Set();
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                const cell = this.grid.get(this._key(x, y));
+                if (cell) {
+                    for (let i = 0; i < cell.length; i++) candidates.add(cell[i]);
                 }
-                return nodeMap.get(id);
+            }
+        }
+        return Array.from(candidates);
+    }
+}
+
+/**
+ * Internal PCB Model
+ */
+class PCBModel {
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        this.metadata = {};
+        this.units = 'INCH';
+        this.layers = new Map();
+        this.aliasMap = new Map();
+        this.boardOutline = [];
+        this.components = new Map();
+        this.pads = new Map();
+        this.shapes = new Map();
+        this.nets = new Map();
+        this.vias = [];
+        this.testpoints = [];
+        this.artwork = [];
+        this.bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        this.warnings = [];
+    }
+
+    normalizeLayerName(raw) {
+        if (!raw) return 'TOP';
+        const upper = raw.toUpperCase();
+        return this.aliasMap.get(upper) || upper;
+    }
+
+    updateBounds(x, y) {
+        if (typeof x !== 'number' || typeof y !== 'number' || isNaN(x) || isNaN(y)) return;
+        if (x < this.bounds.minX) this.bounds.minX = x;
+        if (x > this.bounds.maxX) this.bounds.maxX = x;
+        if (y < this.bounds.minY) this.bounds.minY = y;
+        if (y > this.bounds.maxY) this.bounds.maxY = y;
+    }
+
+    finalizeBounds() {
+        if (this.bounds.minX === Infinity) {
+            this.bounds = { minX: -1, minY: -1, maxX: 1, maxY: 1 };
+        }
+    }
+}
+
+/**
+ * Robust GenCAD Parser
+ */
+class GenCADParser {
+    static parse(text) {
+        const model = new PCBModel();
+        const lines = text.split(/\r?\n/);
+        
+        let currentSection = '';
+        let currentNet = null;
+        let currentLayer = 'TOP';
+        let currentShape = null;
+        let currentComponent = null;
+        let currentTrackWidth = 0.008; // Inches
+
+        // Standard Layer Configurations
+        const defaultLayers = [
+            'BOARD', 'SILKSCREEN_TOP', 'SOLDERMASK_TOP', 'SOLDERPASTE_TOP', 
+            'TOP', 'INNER1', 'INNER2', 'BOTTOM', 
+            'SOLDERMASK_BOTTOM', 'SOLDERPASTE_BOTTOM', 'SILKSCREEN_BOTTOM', 
+            'VIAS', 'TESTPADS'
+        ];
+        defaultLayers.forEach(l => model.layers.set(l, { name: l, visible: true, opacity: 1.0 }));
+
+        for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+            const rawLine = lines[lineIdx];
+            const line = rawLine.trim();
+            if (!line || line.startsWith(';') || line.startsWith('//')) continue;
+
+            const tokens = line.split(/\s+/);
+            const cmd = tokens[0].toUpperCase();
+
+            // Handle Section Changes
+            if (cmd.startsWith('$')) {
+                currentSection = cmd;
+                continue;
+            }
+            
+            // Non-dollar command section switch (e.g. ARTWORK)
+            if (cmd === 'ARTWORK') {
+                currentSection = 'ARTWORK';
+                currentLayer = tokens[2] ? model.normalizeLayerName(tokens[2]) : 'SILKSCREEN_TOP';
             }
 
-            const connSection = text.split(/CONNECTIONS/i)[1];
-            if (!connSection) return false;
-            
-            const connectionsText = connSection.split(/(DEVICES|END)/i)[0];
-            const lines = connectionsText.split('\n');
-            let currentNet = null;
+            try {
+                if (cmd === 'UNITS') {
+                    model.units = tokens[1].toUpperCase();
+                    continue;
+                }
 
-            lines.forEach(line => {
-                let cleanLine = line.split('!')[0].trimRight();
-                if (!cleanLine.trim()) return;
-                const leadingSpaces = cleanLine.length - cleanLine.trimLeft().length;
-                
-                if (leadingSpaces < 4 && cleanLine.trim() !== '') {
-                    currentNet = cleanLine.trim();
-                    addNode(currentNet, true);
-                } else if (leadingSpaces >= 4 && currentNet) {
-                    let componentPart = cleanLine.trim().split('.')[0].replace(';', '');
-                    if (componentPart) {
-                        addNode(componentPart, false);
-                        edges.push({ source: currentNet, target: componentPart });
+                // HEADER SECTION
+                if (currentSection === '$HEADER') {
+                    if (cmd === 'USER' || cmd === 'DRAWING' || cmd === 'REVISION') {
+                        model.metadata[cmd] = tokens.slice(1).join(' ');
                     }
                 }
-            });
-            return true;
-        }
 
-        function generateDiagram() {
-            const fileInput = document.getElementById('fileInput');
-            if (fileInput.files.length === 0) return;
-            document.getElementById('loading').style.display = 'block';
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                setTimeout(() => {
-                    if (parseBoardFile(e.target.result)) {
-                        runPhysicsLayout();
-                        renderSVG();
-                        resetView();
-                    }
-                    document.getElementById('loading').style.display = 'none';
-                }, 50);
-            };
-            reader.readAsText(fileInput.files[0]);
-        }
-
-        function runPhysicsLayout() {
-            const iterations = 300; 
-            const k = 120; 
-            const nodeDict = {};
-            nodes.forEach(n => nodeDict[n.id] = n);
-
-            for (let iter = 0; iter < iterations; iter++) {
-                for (let i = 0; i < nodes.length; i++) {
-                    for (let j = i + 1; j < nodes.length; j++) {
-                        let dx = nodes[i].x - nodes[j].x;
-                        let dy = nodes[i].y - nodes[j].y;
-                        let distSq = dx*dx + dy*dy;
-                        if (distSq === 0) distSq = 0.01;
-                        if (distSq < 90000) { 
-                            let force = (k * k) / distSq;
-                            nodes[i].vx += force * dx; nodes[i].vy += force * dy;
-                            nodes[j].vx -= force * dx; nodes[j].vy -= force * dy;
+                // LAYERS SECTION
+                else if (currentSection === '$LAYERS') {
+                    if (cmd === 'DEFINE') {
+                        const canonicalName = tokens[1].toUpperCase();
+                        const alias = tokens[2] ? tokens[2].toUpperCase() : null;
+                        
+                        model.layers.set(canonicalName, { name: canonicalName, visible: true, opacity: 1.0 });
+                        model.aliasMap.set(canonicalName, canonicalName);
+                        if (alias) {
+                            model.aliasMap.set(alias, canonicalName);
                         }
                     }
                 }
 
-                edges.forEach(edge => {
-                    let source = nodeDict[edge.source], target = nodeDict[edge.target];
-                    if(!source || !target) return;
-                    let dx = target.x - source.x, dy = target.y - source.y;
-                    let dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist === 0) dist = 0.01;
-                    
-                    let force = (dist * dist) / k;
-                    let fx = (force * dx) / dist, fy = (force * dy) / dist;
-                    
-                    source.vx += fx; source.vy += fy;
-                    target.vx -= fx; target.vy -= fy;
-                });
-
-                const temp = (1 - iter / iterations) * 50; 
-                nodes.forEach(n => {
-                    let vDist = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
-                    if (vDist > 0) {
-                        n.x += (n.vx / vDist) * Math.min(vDist, temp);
-                        n.y += (n.vy / vDist) * Math.min(vDist, temp);
+                // BOARD OUTLINE
+                else if (currentSection === '$BOARD') {
+                    if (cmd === 'LINE') {
+                        const x1 = Units.toInches(parseFloat(tokens[1]), model.units);
+                        const y1 = Units.toInches(parseFloat(tokens[2]), model.units);
+                        const x2 = Units.toInches(parseFloat(tokens[3]), model.units);
+                        const y2 = Units.toInches(parseFloat(tokens[4]), model.units);
+                        model.boardOutline.push({ type: 'LINE', x1, y1, x2, y2, bounds: { minX: Math.min(x1,x2), maxX: Math.max(x1,x2), minY: Math.min(y1,y2), maxY: Math.max(y1,y2) } });
+                        model.updateBounds(x1, y1); model.updateBounds(x2, y2);
+                    } else if (cmd === 'ARC') {
+                        const startX = Units.toInches(parseFloat(tokens[1]), model.units);
+                        const startY = Units.toInches(parseFloat(tokens[2]), model.units);
+                        const endX = Units.toInches(parseFloat(tokens[3]), model.units);
+                        const endY = Units.toInches(parseFloat(tokens[4]), model.units);
+                        const cenX = Units.toInches(parseFloat(tokens[5]), model.units);
+                        const cenY = Units.toInches(parseFloat(tokens[6]), model.units);
+                        model.boardOutline.push({ type: 'ARC', startX, startY, endX, endY, cenX, cenY, bounds: { minX: Math.min(startX,endX,cenX), maxX: Math.max(startX,endX,cenX), minY: Math.min(startY,endY,cenY), maxY: Math.max(startY,endY,cenY) } });
+                        model.updateBounds(startX, startY); model.updateBounds(endX, endY);
                     }
-                    n.vx = 0; n.vy = 0;
+                }
+
+                // PADS SECTION
+                else if (currentSection === '$PADS') {
+                    if (cmd === 'PAD') {
+                        const padName = tokens[1];
+                        model.pads.set(padName, { name: padName, shape: 'CIRCLE', width: 0.03, height: 0.03, drill: 0.015 });
+                    }
+                }
+
+                // SHAPES
+                else if (currentSection === '$SHAPES') {
+                    if (cmd === 'SHAPE') {
+                        currentShape = { name: tokens[1], pins: [], lines: [] };
+                        model.shapes.set(tokens[1], currentShape);
+                    } else if (currentShape && cmd === 'PIN') {
+                        currentShape.pins.push({
+                            name: tokens[1],
+                            pad: tokens[2],
+                            x: Units.toInches(parseFloat(tokens[3]), model.units),
+                            y: Units.toInches(parseFloat(tokens[4]), model.units),
+                            rotation: parseFloat(tokens[5]) || 0
+                        });
+                    }
+                }
+
+                // COMPONENTS SECTION
+                else if (currentSection === '$COMPONENTS') {
+                    if (cmd === 'COMPONENT') {
+                        currentComponent = {
+                            refdes: tokens[1],
+                            shape: tokens[2],
+                            x: 0, y: 0, rotation: 0, layer: 'TOP', value: ''
+                        };
+                        model.components.set(tokens[1], currentComponent);
+                    } else if (currentComponent && (cmd === 'PLACE' || cmd === 'POS')) {
+                        currentComponent.x = Units.toInches(parseFloat(tokens[1]), model.units);
+                        currentComponent.y = Units.toInches(parseFloat(tokens[2]), model.units);
+                        model.updateBounds(currentComponent.x, currentComponent.y);
+                    } else if (currentComponent && cmd === 'LAYER') {
+                        currentComponent.layer = model.normalizeLayerName(tokens[1]);
+                    } else if (currentComponent && cmd === 'VALUE') {
+                        currentComponent.value = tokens.slice(1).join(' ');
+                    }
+                }
+
+                // ROUTES / SIGNALS SECTION
+                else if (currentSection === '$ROUTES' || currentSection === '$SIGNALS') {
+                    if (cmd === 'ROUTE' || cmd === 'SIGNAL') {
+                        currentNet = tokens[1];
+                        if (!model.nets.has(currentNet)) {
+                            model.nets.set(currentNet, { name: currentNet, traces: [], vias: [], testpoints: [], length: 0 });
+                        }
+                    } else if (cmd === 'LAYER') {
+                        currentLayer = model.normalizeLayerName(tokens[1]);
+                    } else if (cmd === 'TRACK') {
+                        if (tokens[1].toLowerCase().startsWith('r')) {
+                            currentTrackWidth = Units.toInches(parseFloat(tokens[1].substring(1)), 'MIL');
+                        } else {
+                            currentTrackWidth = Units.toInches(parseFloat(tokens[1]), model.units) || 0.008;
+                        }
+                    } else if (cmd === 'LINE') {
+                        const x1 = Units.toInches(parseFloat(tokens[1]), model.units);
+                        const y1 = Units.toInches(parseFloat(tokens[2]), model.units);
+                        const x2 = Units.toInches(parseFloat(tokens[3]), model.units);
+                        const y2 = Units.toInches(parseFloat(tokens[4]), model.units);
+                        const width = tokens[5] ? Units.toInches(parseFloat(tokens[5]), model.units) : currentTrackWidth;
+                        const layer = tokens[6] ? model.normalizeLayerName(tokens[6]) : currentLayer;
+
+                        const len = Geometry.dist(x1, y1, x2, y2);
+                        const traceObj = {
+                            type: 'TRACE', net: currentNet, layer, x1, y1, x2, y2, width, length: len,
+                            bounds: { minX: Math.min(x1,x2) - width, maxX: Math.max(x1,x2) + width, minY: Math.min(y1,y2) - width, maxY: Math.max(y1,y2) + width }
+                        };
+
+                        if (currentNet && model.nets.has(currentNet)) {
+                            const net = model.nets.get(currentNet);
+                            net.traces.push(traceObj);
+                            net.length += len;
+                        }
+                        model.updateBounds(x1, y1); model.updateBounds(x2, y2);
+                    } else if (cmd === 'VIA') {
+                        const x = Units.toInches(parseFloat(tokens[2]), model.units);
+                        const y = Units.toInches(parseFloat(tokens[3]), model.units);
+                        const viaObj = {
+                            type: 'VIA', net: currentNet, layer: 'VIAS', x, y,
+                            outerDia: 0.024, drill: 0.012, name: tokens[6] || 'VIA',
+                            bounds: { minX: x - 0.015, maxX: x + 0.015, minY: y - 0.015, maxY: y + 0.015 }
+                        };
+                        model.vias.push(viaObj);
+                        if (currentNet && model.nets.has(currentNet)) model.nets.get(currentNet).vias.push(viaObj);
+                        model.updateBounds(x, y);
+                    } else if (cmd === 'TESTPIN') {
+                        const name = tokens[1] || 'TP';
+                        const x = Units.toInches(parseFloat(tokens[2]), model.units);
+                        const y = Units.toInches(parseFloat(tokens[3]), model.units);
+                        const netName = tokens[4] && !tokens[4].startsWith('-') ? tokens[4] : (currentNet || 'UNCONNECTED');
+                        const layer = model.normalizeLayerName(tokens[tokens.length - 1]);
+
+                        const tpObj = {
+                            type: 'TESTPOINT', net: netName, layer: layer || 'TESTPADS', x, y,
+                            dia: 0.040, name: name,
+                            bounds: { minX: x - 0.025, maxX: x + 0.025, minY: y - 0.025, maxY: y + 0.025 }
+                        };
+                        model.testpoints.push(tpObj);
+                        if (netName && model.nets.has(netName)) model.nets.get(netName).testpoints.push(tpObj);
+                        model.updateBounds(x, y);
+                    } else if (cmd === 'TESTPAD') {
+                        const x = Units.toInches(parseFloat(tokens[2]), model.units);
+                        const y = Units.toInches(parseFloat(tokens[3]), model.units);
+                        const name = tokens[tokens.length - 1] || 'TP';
+
+                        const tpObj = {
+                            type: 'TESTPOINT', net: currentNet, layer: currentLayer || 'TESTPADS', x, y,
+                            dia: 0.040, name: name,
+                            bounds: { minX: x - 0.025, maxX: x + 0.025, minY: y - 0.025, maxY: y + 0.025 }
+                        };
+                        model.testpoints.push(tpObj);
+                        if (currentNet && model.nets.has(currentNet)) model.nets.get(currentNet).testpoints.push(tpObj);
+                        model.updateBounds(x, y);
+                    }
+                }
+
+                // ARTWORK SECTION
+                else if (currentSection === 'ARTWORK') {
+                    if (cmd === 'TRACK') {
+                        if (tokens[1].toLowerCase().startsWith('r')) {
+                            currentTrackWidth = Units.toInches(parseFloat(tokens[1].substring(1)), 'MIL');
+                        } else {
+                            currentTrackWidth = Units.toInches(parseFloat(tokens[1]), model.units) || 0.008;
+                        }
+                    } else if (cmd === 'LINE') {
+                        const x1 = Units.toInches(parseFloat(tokens[1]), model.units);
+                        const y1 = Units.toInches(parseFloat(tokens[2]), model.units);
+                        const x2 = Units.toInches(parseFloat(tokens[3]), model.units);
+                        const y2 = Units.toInches(parseFloat(tokens[4]), model.units);
+                        model.artwork.push({
+                            type: 'LINE', layer: currentLayer, x1, y1, x2, y2, width: currentTrackWidth,
+                            bounds: { minX: Math.min(x1,x2), maxX: Math.max(x1,x2), minY: Math.min(y1,y2), maxY: Math.max(y1,y2) }
+                        });
+                        model.updateBounds(x1, y1); model.updateBounds(x2, y2);
+                    }
+                }
+            } catch (err) {
+                model.warnings.push(`Line ${lineIdx + 1}: Failed to parse '${cmd}' - ${err.message}`);
+            }
+        }
+
+        model.finalizeBounds();
+        return model;
+    }
+}
+
+/**
+ * Camera Viewport Manager
+ */
+class Camera {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.scale = 100;
+        this.panX = 0;
+        this.panY = 0;
+        this.dpr = window.devicePixelRatio || 1;
+        this.minScale = 5;
+        this.maxScale = 20000;
+    }
+
+    resize() {
+        this.dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.parentElement.getBoundingClientRect();
+        this.canvas.width = rect.width * this.dpr;
+        this.canvas.height = rect.height * this.dpr;
+    }
+
+    worldToScreen(x, y) {
+        return {
+            x: this.panX + x * this.scale,
+            y: this.panY - y * this.scale
+        };
+    }
+
+    screenToWorld(sx, sy) {
+        return {
+            x: (sx - this.panX) / this.scale,
+            y: (this.panY - sy) / this.scale
+        };
+    }
+
+    zoomAtScreenPoint(factor, sx, sy) {
+        const newScale = Math.max(this.minScale, Math.min(this.maxScale, this.scale * factor));
+        const world = this.screenToWorld(sx, sy);
+        this.scale = newScale;
+        
+        const newScreen = this.worldToScreen(world.x, world.y);
+        this.panX += sx - newScreen.x;
+        this.panY += sy - newScreen.y;
+    }
+
+    fitBounds(bounds) {
+        if (!bounds || bounds.minX === Infinity) return;
+        const width = bounds.maxX - bounds.minX;
+        const height = bounds.maxY - bounds.minY;
+        if (width <= 0 || height <= 0) return;
+
+        const cssWidth = this.canvas.width / this.dpr;
+        const cssHeight = this.canvas.height / this.dpr;
+        const margin = 40;
+
+        const scaleX = (cssWidth - margin * 2) / width;
+        const scaleY = (cssHeight - margin * 2) / height;
+
+        this.scale = Math.max(this.minScale, Math.min(this.maxScale, Math.min(scaleX, scaleY)));
+
+        const centerX = (bounds.minX + bounds.maxX) / 2;
+        const centerY = (bounds.minY + bounds.maxY) / 2;
+
+        this.panX = cssWidth / 2 - centerX * this.scale;
+        this.panY = cssHeight / 2 + centerY * this.scale;
+    }
+}
+
+/**
+ * Layer Manager
+ */
+class LayerManager {
+    constructor() {
+        this.layers = new Map();
+        this.defaultColors = {
+            'BOARD': '#00ffff',
+            'SILKSCREEN_TOP': '#ffffff',
+            'SOLDERMASK_TOP': '#22c55e',
+            'SOLDERPASTE_TOP': '#06b6d4',
+            'TOP': '#ef4444',
+            'INNER1': '#ec4899',
+            'INNER2': '#eab308',
+            'BOTTOM': '#3b82f6',
+            'SOLDERMASK_BOTTOM': '#15803d',
+            'SOLDERPASTE_BOTTOM': '#0e7490',
+            'SILKSCREEN_BOTTOM': '#94a3b8',
+            'VIAS': '#00ffcc',
+            'TESTPADS': '#f97316'
+        };
+    }
+
+    syncWithModel(model) {
+        model.layers.forEach((layer, key) => {
+            if (!this.layers.has(key)) {
+                this.layers.set(key, {
+                    name: key,
+                    color: this.defaultColors[key] || '#a855f7',
+                    visible: true,
+                    opacity: 1.0
                 });
             }
-
-            // SNAP TO GRID
-            nodes.forEach(n => {
-                n.x = Math.round(n.x / GRID_SIZE) * GRID_SIZE;
-                n.y = Math.round(n.y / GRID_SIZE) * GRID_SIZE;
-            });
-        }
-
-        function renderSVG() {
-            const viewport = document.getElementById('viewport');
-            viewport.innerHTML = '';
-            const nodeDict = {};
-            nodes.forEach(n => nodeDict[n.id] = n);
-
-            // Draw Manhattan Orthogonal Wires
-            edges.forEach(edge => {
-                let source = nodeDict[edge.source], target = nodeDict[edge.target];
-                if(source && target) {
-                    let path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    let midX = (source.x + target.x) / 2;
-                    // Snap mid point to grid
-                    midX = Math.round(midX / GRID_SIZE) * GRID_SIZE;
-                    
-                    // Manhattan routing data
-                    let d = `M ${source.x} ${source.y} L ${midX} ${source.y} L ${midX} ${target.y} L ${target.x} ${target.y}`;
-                    path.setAttribute('d', d);
-                    path.setAttribute('class', 'wire');
-                    viewport.appendChild(path);
-                }
-            });
-
-            // Draw Nodes & Labels
-            nodes.forEach(n => {
-                if (n.isNet) {
-                    let circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('cx', n.x); circle.setAttribute('cy', n.y);
-                    circle.setAttribute('r', 4); circle.setAttribute('class', 'net-node');
-                    viewport.appendChild(circle);
-                } else {
-                    let use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-                    use.setAttribute('href', '#sym-' + n.compType);
-                    use.setAttribute('x', n.x); use.setAttribute('y', n.y);
-                    viewport.appendChild(use);
-                }
-
-                let text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                text.setAttribute('x', n.x);
-                text.setAttribute('y', n.y + (n.compType === 'U' ? 30 : 20));
-                text.setAttribute('class', 'label');
-                text.textContent = n.id;
-                viewport.appendChild(text);
-            });
-        }
-
-        // Viewport Controls (Pan & Zoom)
-        function updateTransform() {
-            document.getElementById('viewport').setAttribute('transform', `translate(${currentX}, ${currentY}) scale(${currentScale})`);
-            // Parallax grid effect
-            document.getElementById('canvas-container').style.backgroundPosition = `${currentX}px ${currentY}px`;
-            document.getElementById('canvas-container').style.backgroundSize = `${20 * currentScale}px ${20 * currentScale}px`;
-        }
-
-        function resetView() {
-            const container = document.getElementById('canvas-container');
-            currentScale = 0.5;
-            currentX = -(VIRTUAL_WIDTH/2 * currentScale) + (container.clientWidth/2);
-            currentY = -(VIRTUAL_HEIGHT/2 * currentScale) + (container.clientHeight/2);
-            updateTransform();
-        }
-
-        const container = document.getElementById('canvas-container');
-        container.addEventListener('mousedown', e => { isDragging = true; startDragX = e.clientX - currentX; startDragY = e.clientY - currentY; });
-        window.addEventListener('mousemove', e => { if (isDragging) { currentX = e.clientX - startDragX; currentY = e.clientY - startDragY; updateTransform(); }});
-        window.addEventListener('mouseup', () => isDragging = false);
-
-        container.addEventListener('wheel', e => {
-            e.preventDefault();
-            const delta = -e.deltaY * 0.001;
-            const newScale = Math.max(0.1, Math.min(3, currentScale + delta));
-            const rect = container.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-            currentX = mouseX - (mouseX - currentX) * (newScale / currentScale);
-            currentY = mouseY - (mouseY - currentY) * (newScale / currentScale);
-            currentScale = newScale;
-            updateTransform();
         });
-    </script>
+    }
+
+    getLayer(name) {
+        return this.layers.get(name) || { name, color: '#ffffff', visible: true, opacity: 1.0 };
+    }
+}
+
+/**
+ * Measurement Mode Engine
+ */
+class MeasurementManager {
+    constructor() {
+        this.active = false;
+        this.p1 = null;
+        this.p2 = null;
+    }
+
+    start() {
+        this.active = true;
+        this.p1 = null;
+        this.p2 = null;
+    }
+
+    stop() {
+        this.active = false;
+        this.p1 = null;
+        this.p2 = null;
+    }
+
+    handleClick(cadPoint) {
+        if (!this.p1) {
+            this.p1 = cadPoint;
+        } else if (!this.p2) {
+            this.p2 = cadPoint;
+        } else {
+            this.p1 = cadPoint;
+            this.p2 = null;
+        }
+    }
+}
+
+/**
+ * Optimized Canvas 2D PCB Renderer (Matrix-Transformed + Batched Draws)
+ */
+class Renderer {
+    constructor(camera, layerManager) {
+        this.camera = camera;
+        this.layerManager = layerManager;
+        this.gridVisible = true;
+    }
+
+    render(model, selectionState, measureState, currentUnit, hoverEntity) {
+        const ctx = this.camera.ctx;
+        const dpr = this.camera.dpr;
+        const cssW = this.camera.canvas.width / dpr;
+        const cssH = this.camera.canvas.height / dpr;
+
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, cssW, cssH);
+
+        // Calculate Viewport Bounds in CAD World Space for Frustum Culling
+        const vMin = this.camera.screenToWorld(0, cssH);
+        const vMax = this.camera.screenToWorld(cssW, 0);
+        const viewBounds = {
+            minX: Math.min(vMin.x, vMax.x),
+            maxX: Math.max(vMin.x, vMax.x),
+            minY: Math.min(vMin.y, vMax.y),
+            maxY: Math.max(vMin.y, vMax.y)
+        };
+
+        // 1. Draw Grid in Screen Space
+        if (this.gridVisible) this.drawGrid(cssW, cssH);
+
+        // Apply World Matrix Transform (Natively renders in Inches!)
+        ctx.save();
+        ctx.translate(this.camera.panX, this.camera.panY);
+        ctx.scale(this.camera.scale, -this.camera.scale);
+
+        // 2. Draw Board Outline (Only actual physical edge segments)
+        const boardLayer = this.layerManager.getLayer('BOARD');
+        if (boardLayer.visible && model.boardOutline.length > 0) {
+            ctx.strokeStyle = boardLayer.color;
+            ctx.lineWidth = 2 / this.camera.scale;
+            ctx.beginPath();
+            model.boardOutline.forEach(item => {
+                if (item.type === 'LINE') {
+                    ctx.moveTo(item.x1, item.y1);
+                    ctx.lineTo(item.x2, item.y2);
+                }
+            });
+            ctx.stroke();
+        }
+
+        // Helper: Batch Draw Copper Traces per Layer
+        const drawLayerTraces = (layerKey) => {
+            const layer = this.layerManager.getLayer(layerKey);
+            if (!layer.visible) return;
+
+            const isNetSelected = !!selectionState.selectedNet;
+
+            // Group traces by width
+            const widthGroups = new Map();
+
+            model.nets.forEach(net => {
+                const isSelected = (selectionState.selectedNet === net.name);
+
+                net.traces.forEach(trace => {
+                    if (trace.layer !== layerKey) return;
+                    // Frustum cull
+                    if (trace.bounds.maxX < viewBounds.minX || trace.bounds.minX > viewBounds.maxX ||
+                        trace.bounds.maxY < viewBounds.minY || trace.bounds.minY > viewBounds.maxY) return;
+
+                    const groupKey = isSelected ? 'SELECTED' : `${trace.width}_${layer.opacity}`;
+                    if (!widthGroups.has(groupKey)) {
+                        widthGroups.set(groupKey, { width: trace.width, isSelected, items: [] });
+                    }
+                    widthGroups.get(groupKey).items.push(trace);
+                });
+            });
+
+            ctx.lineCap = 'round';
+            widthGroups.forEach(group => {
+                ctx.beginPath();
+                group.items.forEach(t => {
+                    ctx.moveTo(t.x1, t.y1);
+                    ctx.lineTo(t.x2, t.y2);
+                });
+
+                if (group.isSelected) {
+                    ctx.strokeStyle = '#39ff14';
+                    ctx.lineWidth = Math.max(4 / this.camera.scale, group.width);
+                    ctx.globalAlpha = 1.0;
+                } else {
+                    ctx.strokeStyle = layer.color;
+                    ctx.lineWidth = group.width || (1 / this.camera.scale);
+                    ctx.globalAlpha = isNetSelected ? 0.15 : layer.opacity;
+                }
+                ctx.stroke();
+            });
+            ctx.globalAlpha = 1.0;
+        };
+
+        // Helper: Batch Draw Artwork / Silkscreen per Layer
+        const drawLayerArtwork = (layerKey) => {
+            const layer = this.layerManager.getLayer(layerKey);
+            if (!layer.visible || model.artwork.length === 0) return;
+
+            const artworkGroup = [];
+            model.artwork.forEach(art => {
+                if (art.layer !== layerKey) return;
+                if (art.bounds.maxX < viewBounds.minX || art.bounds.minX > viewBounds.maxX ||
+                    art.bounds.maxY < viewBounds.minY || art.bounds.minY > viewBounds.maxY) return;
+                artworkGroup.push(art);
+            });
+
+            if (artworkGroup.length === 0) return;
+
+            ctx.strokeStyle = layer.color;
+            ctx.globalAlpha = layer.opacity;
+            ctx.lineWidth = 1 / this.camera.scale;
+            ctx.beginPath();
+            artworkGroup.forEach(art => {
+                ctx.moveTo(art.x1, art.y1);
+                ctx.lineTo(art.x2, art.y2);
+            });
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        };
+
+        // 3. Multi-Layer Stackup Rendering Order
+        // Bottom Silkscreen
+        drawLayerArtwork('SILKSCREEN_BOTTOM');
+        // Bottom Copper
+        drawLayerTraces('BOTTOM');
+        
+        // Inner Layers
+        this.layerManager.layers.forEach((layer, key) => {
+            if (key !== 'TOP' && key !== 'BOTTOM' && key !== 'BOARD' && key !== 'VIAS' && key !== 'TESTPADS' && !key.startsWith('SILK')) {
+                drawLayerTraces(key);
+                drawLayerArtwork(key);
+            }
+        });
+
+        // Top Copper
+        drawLayerTraces('TOP');
+        // Top Silkscreen
+        drawLayerArtwork('SILKSCREEN_TOP');
+
+        // 4. Vias
+        const viaLayer = this.layerManager.getLayer('VIAS');
+        if (viaLayer.visible) {
+            model.vias.forEach(via => {
+                if (via.x < viewBounds.minX || via.x > viewBounds.maxX || via.y < viewBounds.minY || via.y > viewBounds.maxY) return;
+
+                const isSelected = (selectionState.selectedNet === via.net);
+                const outerR = via.outerDia / 2;
+                const drillR = via.drill / 2;
+
+                ctx.beginPath();
+                ctx.arc(via.x, via.y, Math.max(outerR, 2 / this.camera.scale), 0, Math.PI * 2);
+                ctx.fillStyle = isSelected ? '#39ff14' : viaLayer.color;
+                ctx.fill();
+
+                if (drillR * this.camera.scale > 1) {
+                    ctx.beginPath();
+                    ctx.arc(via.x, via.y, drillR, 0, Math.PI * 2);
+                    ctx.fillStyle = '#0f1117';
+                    ctx.fill();
+                }
+            });
+        }
+
+        // 5. Testpoints
+        const tpLayer = this.layerManager.getLayer('TESTPADS');
+        if (tpLayer.visible) {
+            model.testpoints.forEach(tp => {
+                if (tp.x < viewBounds.minX || tp.x > viewBounds.maxX || tp.y < viewBounds.minY || tp.y > viewBounds.maxY) return;
+
+                const isSelected = (selectionState.selectedNet === tp.net);
+                const r = Math.max(4 / this.camera.scale, tp.dia / 2);
+
+                ctx.beginPath();
+                ctx.arc(tp.x, tp.y, r, 0, Math.PI * 2);
+                ctx.fillStyle = isSelected ? '#39ff14' : tpLayer.color;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5 / this.camera.scale;
+                ctx.stroke();
+            });
+        }
+
+        // 6. Hover Highlight
+        if (hoverEntity) {
+            ctx.save();
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2 / this.camera.scale;
+            if (hoverEntity.x1 !== undefined) {
+                ctx.beginPath(); ctx.moveTo(hoverEntity.x1, hoverEntity.y1); ctx.lineTo(hoverEntity.x2, hoverEntity.y2); ctx.stroke();
+            } else if (hoverEntity.x !== undefined) {
+                ctx.beginPath(); ctx.arc(hoverEntity.x, hoverEntity.y, 8 / this.camera.scale, 0, Math.PI * 2); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        ctx.restore(); // Restore world transform
+
+        // 7. Render Measurement Overlay in Screen Space
+        if (measureState.active && measureState.p1) {
+            ctx.save();
+            const p1 = this.camera.worldToScreen(measureState.p1.x, measureState.p1.y);
+            const p2 = measureState.p2 ? this.camera.worldToScreen(measureState.p2.x, measureState.p2.y) : measureState.currMouse;
+
+            if (p2) {
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+
+                const cadP2 = measureState.p2 || this.camera.screenToWorld(p2.x, p2.y);
+                const dist = Geometry.dist(measureState.p1.x, measureState.p1.y, cadP2.x, cadP2.y);
+                const dx = Math.abs(cadP2.x - measureState.p1.x);
+                const dy = Math.abs(cadP2.y - measureState.p1.y);
+
+                const midX = (p1.x + p2.x) / 2;
+                const midY = (p1.y + p2.y) / 2;
+
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = 'bold 12px monospace';
+                ctx.fillText(`Dist: ${Units.format(dist, currentUnit)} (ΔX:${Units.format(dx, currentUnit)}, ΔY:${Units.format(dy, currentUnit)})`, midX + 10, midY - 10);
+            }
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
+
+    drawGrid(cssW, cssH) {
+        const ctx = this.camera.ctx;
+        const targetPixelSpacing = 40;
+        const cadSpacing = targetPixelSpacing / this.camera.scale;
+        
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+
+        const start = this.camera.screenToWorld(0, cssH);
+        const end = this.camera.screenToWorld(cssW, 0);
+
+        const startX = Math.floor(start.x / cadSpacing) * cadSpacing;
+        const endX = Math.ceil(end.x / cadSpacing) * cadSpacing;
+        const startY = Math.floor(start.y / cadSpacing) * cadSpacing;
+        const endY = Math.ceil(end.y / cadSpacing) * cadSpacing;
+
+        ctx.beginPath();
+        for (let x = startX; x <= endX; x += cadSpacing) {
+            const p = this.camera.worldToScreen(x, 0);
+            ctx.moveTo(p.x, 0); ctx.lineTo(p.x, cssH);
+        }
+        for (let y = startY; y <= endY; y += cadSpacing) {
+            const p = this.camera.worldToScreen(0, y);
+            ctx.moveTo(0, p.y); ctx.lineTo(cssW, p.y);
+        }
+        ctx.stroke();
+    }
+}
+
+/**
+ * Main Application Controller
+ */
+class GenCADApp {
+    constructor() {
+        this.canvas = document.getElementById('cadCanvas');
+        this.camera = new Camera(this.canvas);
+        this.layerManager = new LayerManager();
+        this.renderer = new Renderer(this.camera, this.layerManager);
+        this.spatialIndex = new SpatialIndex();
+        this.measureState = new MeasurementManager();
+
+        this.model = new PCBModel();
+        this.currentUnit = 'INCH';
+        this.selectedNet = null;
+        this.selectedObject = null;
+        this.hoverEntity = null;
+        this.renderRequested = false;
+
+        this.init();
+    }
+
+    init() {
+        this.camera.resize();
+        this.initDOM();
+        this.loadSettings();
+        this.requestRender();
+    }
+
+    requestRender() {
+        if (!this.renderRequested) {
+            this.renderRequested = true;
+            requestAnimationFrame(() => {
+                this.renderRequested = false;
+                this.renderer.render(
+                    this.model,
+                    { selectedNet: this.selectedNet },
+                    this.measureState,
+                    this.currentUnit,
+                    this.hoverEntity
+                );
+            });
+        }
+    }
+
+    initDOM() {
+        window.addEventListener('resize', () => {
+            this.camera.resize();
+            this.requestRender();
+        });
+
+        // File Drop & Select
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        document.getElementById('btn-open-file').addEventListener('click', () => fileInput.click());
+        document.getElementById('btn-drop-select').addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) this.loadFile(e.target.files[0]);
+        });
+
+        window.addEventListener('dragover', (e) => e.preventDefault());
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length > 0) this.loadFile(e.dataTransfer.files[0]);
+        });
+
+        // Mouse & Pointer Navigation
+        let isDragging = false;
+        let dragDistance = 0;
+        let lastMouse = { x: 0, y: 0 };
+
+        this.canvas.addEventListener('pointerdown', (e) => {
+            if (e.button === 0 || e.button === 1) {
+                isDragging = true;
+                dragDistance = 0;
+                lastMouse = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (isDragging) {
+                const dx = e.clientX - lastMouse.x;
+                const dy = e.clientY - lastMouse.y;
+                dragDistance += Math.hypot(dx, dy);
+                this.camera.panX += dx;
+                this.camera.panY += dy;
+                lastMouse = { x: e.clientX, y: e.clientY };
+                this.requestRender();
+            }
+            this.handleMouseMove(e);
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            if (isDragging && dragDistance < 5) {
+                this.handleCanvasClick(e);
+            }
+            isDragging = false;
+        });
+
+        this.canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = this.canvas.getBoundingClientRect();
+            const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+            this.camera.zoomAtScreenPoint(zoomFactor, e.clientX - rect.left, e.clientY - rect.top);
+            this.updateHUD();
+            this.requestRender();
+        }, { passive: false });
+
+        // Toolbars & Action Buttons
+        document.getElementById('btn-fit').addEventListener('click', () => {
+            this.camera.fitBounds(this.model.bounds);
+            this.updateHUD();
+            this.requestRender();
+        });
+        document.getElementById('btn-zoom-in').addEventListener('click', () => {
+            this.camera.zoomAtScreenPoint(1.25, this.canvas.width / (2 * this.camera.dpr), this.canvas.height / (2 * this.camera.dpr));
+            this.updateHUD();
+            this.requestRender();
+        });
+        document.getElementById('btn-zoom-out').addEventListener('click', () => {
+            this.camera.zoomAtScreenPoint(0.8, this.canvas.width / (2 * this.camera.dpr), this.canvas.height / (2 * this.camera.dpr));
+            this.updateHUD();
+            this.requestRender();
+        });
+        document.getElementById('btn-clear-sel').addEventListener('click', () => this.clearSelection());
+        document.getElementById('btn-grid').addEventListener('click', (e) => {
+            this.renderer.gridVisible = !this.renderer.gridVisible;
+            e.target.classList.toggle('active', this.renderer.gridVisible);
+            this.requestRender();
+        });
+
+        // Measurement Mode
+        const measureBtn = document.getElementById('btn-measure');
+        const measureBanner = document.getElementById('measure-banner');
+        
+        const toggleMeasure = () => {
+            if (this.measureState.active) {
+                this.measureState.stop();
+                measureBtn.classList.remove('active');
+                measureBanner.classList.add('hidden');
+            } else {
+                this.measureState.start();
+                measureBtn.classList.add('active');
+                measureBanner.classList.remove('hidden');
+            }
+            this.requestRender();
+        };
+
+        measureBtn.addEventListener('click', toggleMeasure);
+        document.getElementById('btn-exit-measure').addEventListener('click', toggleMeasure);
+
+        // Sidebar Collapsibles
+        document.getElementById('toggle-left').addEventListener('click', () => {
+            document.getElementById('sidebar-left').classList.toggle('collapsed-left');
+        });
+        document.getElementById('toggle-right').addEventListener('click', () => {
+            document.getElementById('sidebar-right').classList.toggle('collapsed-right');
+        });
+
+        // Unit Selector
+        const unitSel = document.getElementById('unit-selector');
+        unitSel.addEventListener('change', (e) => {
+            this.currentUnit = e.target.value;
+            this.saveSettings();
+            this.updateHUD();
+            this.updateInspectorUI();
+            this.requestRender();
+        });
+
+        // Layer Quick Toggles
+        document.getElementById('btn-show-all').addEventListener('click', () => {
+            this.layerManager.layers.forEach(l => l.visible = true);
+            this.renderLayerUI();
+            this.requestRender();
+        });
+        document.getElementById('btn-hide-all').addEventListener('click', () => {
+            this.layerManager.layers.forEach(l => l.visible = false);
+            this.renderLayerUI();
+            this.requestRender();
+        });
+
+        // OUTLINE Layer Quick Toggle
+        document.getElementById('btn-toggle-outline').addEventListener('click', () => {
+            const boardLayer = this.layerManager.getLayer('BOARD');
+            boardLayer.visible = !boardLayer.visible;
+            this.renderLayerUI();
+            this.requestRender();
+        });
+
+        // TOP SILK Layer Quick Toggle
+        document.getElementById('btn-toggle-top-silk').addEventListener('click', () => {
+            const layer = this.layerManager.getLayer('SILKSCREEN_TOP');
+            layer.visible = !layer.visible;
+            this.renderLayerUI();
+            this.requestRender();
+        });
+
+        // BOTTOM SILK Layer Quick Toggle
+        document.getElementById('btn-toggle-btm-silk').addEventListener('click', () => {
+            const layer = this.layerManager.getLayer('SILKSCREEN_BOTTOM');
+            layer.visible = !layer.visible;
+            this.renderLayerUI();
+            this.requestRender();
+        });
+
+        // TOP COPPER Quick Toggle
+        document.getElementById('btn-toggle-top').addEventListener('click', () => {
+            const topLayer = this.layerManager.getLayer('TOP');
+            topLayer.visible = !topLayer.visible;
+            this.renderLayerUI();
+            this.requestRender();
+        });
+
+        // BOTTOM COPPER Quick Toggle
+        document.getElementById('btn-toggle-bottom').addEventListener('click', () => {
+            const btmLayer = this.layerManager.getLayer('BOTTOM');
+            btmLayer.visible = !btmLayer.visible;
+            this.renderLayerUI();
+            this.requestRender();
+        });
+
+        // INNERS Layer Quick Toggle
+        document.getElementById('btn-toggle-inners').addEventListener('click', () => {
+            const innerKeys = Array.from(this.layerManager.layers.keys()).filter(k => k.startsWith('INNER'));
+            const anyVis = innerKeys.some(key => this.layerManager.getLayer(key).visible);
+            innerKeys.forEach(key => {
+                this.layerManager.getLayer(key).visible = !anyVis;
+            });
+            this.renderLayerUI();
+            this.requestRender();
+        });
+
+        // VIAS Layer Quick Toggle
+        document.getElementById('btn-toggle-vias').addEventListener('click', () => {
+            const viaLayer = this.layerManager.getLayer('VIAS');
+            viaLayer.visible = !viaLayer.visible;
+            this.renderLayerUI();
+            this.requestRender();
+        });
+
+        // Diagnostics
+        document.getElementById('btn-view-diag').addEventListener('click', () => {
+            document.getElementById('modal-diagnostics').classList.remove('hidden');
+        });
+        document.getElementById('btn-close-diag').addEventListener('click', () => {
+            document.getElementById('modal-diagnostics').classList.add('hidden');
+        });
+
+        // Export PNG
+        document.getElementById('btn-export').addEventListener('click', () => this.exportPNG());
+
+        // Search Input
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            this.filterLists(e.target.value);
+        });
+
+        // Keyboard Shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            const k = e.key.toUpperCase();
+            if (k === 'F') this.camera.fitBounds(this.model.bounds);
+            else if (k === 'M') toggleMeasure();
+            else if (k === 'G') document.getElementById('btn-grid').click();
+            else if (k === 'ESCAPE') this.clearSelection();
+            else if (k === 'L') document.getElementById('toggle-left').click();
+            else if (k === 'N') document.getElementById('toggle-right').click();
+            this.updateHUD();
+            this.requestRender();
+        });
+    }
+
+    loadFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.model = GenCADParser.parse(e.target.result);
+            this.layerManager.syncWithModel(this.model);
+            
+            this.spatialIndex.clear();
+            this.model.nets.forEach(net => {
+                net.traces.forEach(t => this.spatialIndex.insert(t));
+            });
+            this.model.vias.forEach(v => this.spatialIndex.insert(v));
+            this.model.testpoints.forEach(tp => this.spatialIndex.insert(tp));
+
+            this.renderLayerUI();
+            this.renderNetListUI();
+            this.renderCompListUI();
+            this.updateFileInfoUI(file.name, file.size);
+
+            this.camera.fitBounds(this.model.bounds);
+            document.getElementById('drop-zone').classList.add('hidden');
+            this.updateHUD();
+            this.requestRender();
+        };
+        reader.readAsText(file);
+    }
+
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const cadP = this.camera.screenToWorld(sx, sy);
+
+        if (this.measureState.active) {
+            this.measureState.currMouse = { x: sx, y: sy };
+            this.requestRender();
+        }
+
+        const candidates = this.spatialIndex.queryPoint(cadP, 10 / this.camera.scale);
+        let found = null;
+
+        for (const item of candidates) {
+            if (item.type === 'TESTPOINT' || item.type === 'VIA') {
+                if (Geometry.dist(cadP.x, cadP.y, item.x, item.y) <= (item.dia || item.outerDia || 0.02)) {
+                    found = item; break;
+                }
+            } else if (item.type === 'TRACE') {
+                if (Geometry.distToSegment(cadP, { x: item.x1, y: item.y1 }, { x: item.x2, y: item.y2 }) <= item.width / 2 + (4 / this.camera.scale)) {
+                    found = item; break;
+                }
+            }
+        }
+
+        if (this.hoverEntity !== found) {
+            this.hoverEntity = found;
+            this.requestRender();
+        }
+
+        const tooltip = document.getElementById('tooltip');
+
+        if (found) {
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.clientX + 12) + 'px';
+            tooltip.style.top = (e.clientY + 12) + 'px';
+            
+            tooltip.replaceChildren();
+            const b = document.createElement('b');
+            b.textContent = `${found.type}: ${found.name || found.net || ''}`;
+            tooltip.appendChild(b);
+            tooltip.appendChild(document.createElement('br'));
+            tooltip.appendChild(document.createTextNode(`Layer: ${found.layer}`));
+            if (found.net) {
+                tooltip.appendChild(document.createElement('br'));
+                tooltip.appendChild(document.createTextNode(`Net: ${found.net}`));
+            }
+        } else {
+            tooltip.style.display = 'none';
+        }
+
+        document.getElementById('hud-coords').textContent = 
+            `X: ${Units.format(cadP.x, this.currentUnit)} | Y: ${Units.format(cadP.y, this.currentUnit)}`;
+    }
+
+    handleCanvasClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const cadP = this.camera.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+
+        if (this.measureState.active) {
+            this.measureState.handleClick(cadP);
+            this.requestRender();
+            return;
+        }
+
+        if (this.hoverEntity) {
+            this.selectedObject = this.hoverEntity;
+            if (this.hoverEntity.net) this.selectNet(this.hoverEntity.net);
+            this.updateInspectorUI();
+        } else {
+            this.clearSelection();
+        }
+        this.requestRender();
+    }
+
+    selectNet(netName) {
+        this.selectedNet = netName;
+        document.getElementById('hud-selected-net').textContent = `Net: ${netName || 'None'}`;
+        
+        document.querySelectorAll('#net-list-container .list-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.net === netName);
+        });
+
+        this.updateInspectorUI();
+        this.requestRender();
+    }
+
+    clearSelection() {
+        this.selectedNet = null;
+        this.selectedObject = null;
+        document.getElementById('hud-selected-net').textContent = 'Net: None';
+        document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
+        this.updateInspectorUI();
+        this.requestRender();
+    }
+
+    updateHUD() {
+        document.getElementById('hud-zoom').textContent = `Zoom: ${Math.round((this.camera.scale / 100) * 100)}%`;
+    }
+
+    renderLayerUI() {
+        const container = document.getElementById('layer-list-container');
+        container.replaceChildren();
+
+        this.layerManager.layers.forEach((layer, key) => {
+            const item = document.createElement('div');
+            item.className = 'layer-item';
+
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.className = 'layer-color';
+            colorInput.value = layer.color;
+            colorInput.addEventListener('input', (e) => {
+                layer.color = e.target.value;
+                this.saveSettings();
+                this.requestRender();
+            });
+
+            const name = document.createElement('span');
+            name.className = 'layer-name';
+            name.textContent = layer.name;
+
+            const controls = document.createElement('div');
+            controls.className = 'layer-controls';
+
+            const opacitySlider = document.createElement('input');
+            opacitySlider.type = 'range';
+            opacitySlider.className = 'opacity-slider';
+            opacitySlider.min = '0';
+            opacitySlider.max = '1';
+            opacitySlider.step = '0.1';
+            opacitySlider.value = layer.opacity;
+            opacitySlider.addEventListener('input', (e) => {
+                layer.opacity = parseFloat(e.target.value);
+                this.requestRender();
+            });
+
+            const toggle = document.createElement('input');
+            toggle.type = 'checkbox';
+            toggle.checked = layer.visible;
+            toggle.addEventListener('change', (e) => {
+                layer.visible = e.target.checked;
+                this.requestRender();
+            });
+
+            controls.appendChild(opacitySlider);
+            controls.appendChild(toggle);
+
+            item.appendChild(colorInput);
+            item.appendChild(name);
+            item.appendChild(controls);
+            container.appendChild(item);
+        });
+    }
+
+    renderNetListUI() {
+        const container = document.getElementById('net-list-container');
+        container.replaceChildren();
+
+        const nets = Array.from(this.model.nets.values());
+        document.getElementById('net-count').textContent = nets.length;
+
+        nets.forEach(net => {
+            const item = document.createElement('div');
+            item.className = 'list-item' + (this.selectedNet === net.name ? ' active' : '');
+            item.dataset.net = net.name;
+
+            const name = document.createElement('span');
+            name.textContent = net.name;
+
+            const info = document.createElement('span');
+            info.style.opacity = '0.6';
+            info.style.fontSize = '10px';
+            info.textContent = `${net.traces.length} segs`;
+
+            item.appendChild(name);
+            item.appendChild(info);
+            item.addEventListener('click', () => this.selectNet(net.name));
+
+            container.appendChild(item);
+        });
+    }
+
+    renderCompListUI() {
+        const container = document.getElementById('comp-list-container');
+        container.replaceChildren();
+
+        const comps = Array.from(this.model.components.values());
+        document.getElementById('comp-count').textContent = comps.length;
+
+        comps.forEach(comp => {
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            
+            const name = document.createElement('span');
+            name.textContent = comp.refdes;
+
+            const value = document.createElement('span');
+            value.style.opacity = '0.6';
+            value.style.fontSize = '10px';
+            value.textContent = comp.value || comp.shape;
+
+            item.appendChild(name);
+            item.appendChild(value);
+            container.appendChild(item);
+        });
+    }
+
+    updateInspectorUI() {
+        const container = document.getElementById('object-inspector-container');
+        container.replaceChildren();
+
+        if (this.selectedObject) {
+            const table = document.createElement('table');
+            table.className = 'prop-table';
+
+            const addRow = (label, val) => {
+                const tr = document.createElement('tr');
+                const td1 = document.createElement('td');
+                td1.textContent = label;
+                const td2 = document.createElement('td');
+                td2.textContent = val;
+                tr.appendChild(td1); tr.appendChild(td2);
+                table.appendChild(tr);
+            };
+
+            const obj = this.selectedObject;
+            addRow('Type', obj.type);
+            if (obj.name) addRow('Name', obj.name);
+            if (obj.net) addRow('Net', obj.net);
+            if (obj.layer) addRow('Layer', obj.layer);
+            if (obj.width) addRow('Width', Units.format(obj.width, this.currentUnit));
+            if (obj.length) addRow('Length', Units.format(obj.length, this.currentUnit));
+            if (obj.x !== undefined) addRow('X', Units.format(obj.x, this.currentUnit));
+            if (obj.y !== undefined) addRow('Y', Units.format(obj.y, this.currentUnit));
+
+            container.appendChild(table);
+        } else if (this.selectedNet && this.model.nets.has(this.selectedNet)) {
+            const net = this.model.nets.get(this.selectedNet);
+            const table = document.createElement('table');
+            table.className = 'prop-table';
+
+            const addRow = (label, val) => {
+                const tr = document.createElement('tr');
+                const td1 = document.createElement('td');
+                td1.textContent = label;
+                const td2 = document.createElement('td');
+                td2.textContent = val;
+                tr.appendChild(td1); tr.appendChild(td2);
+                table.appendChild(tr);
+            };
+
+            addRow('Net Name', net.name);
+            addRow('Traces', net.traces.length);
+            addRow('Vias', net.vias.length);
+            addRow('Testpoints', net.testpoints.length);
+            addRow('Est. Length', Units.format(net.length, this.currentUnit));
+
+            container.appendChild(table);
+        } else {
+            const empty = document.createElement('div');
+            empty.style.color = 'var(--text-muted)';
+            empty.style.fontSize = '11px';
+            empty.style.textAlign = 'center';
+            empty.style.padding = '12px 0';
+            empty.textContent = 'Click any trace, pad, via, or component to inspect properties.';
+            container.appendChild(empty);
+        }
+    }
+
+    updateFileInfoUI(filename, size) {
+        const container = document.getElementById('file-info-summary');
+        container.replaceChildren();
+
+        const appendInfo = (lbl, val) => {
+            const div = document.createElement('div');
+            div.textContent = `${lbl}: ${val}`;
+            container.appendChild(div);
+        };
+
+        appendInfo('File', filename);
+        appendInfo('Size', `${(size / 1024).toFixed(1)} KB`);
+        appendInfo('Nets', this.model.nets.size);
+        appendInfo('Vias', this.model.vias.length);
+        appendInfo('Testpoints', this.model.testpoints.length);
+        appendInfo('Warnings', this.model.warnings.length);
+
+        const diagContent = document.getElementById('diag-log-content');
+        diagContent.textContent = this.model.warnings.length > 0 ? this.model.warnings.join('\n') : 'No parser warnings or errors.';
+    }
+
+    filterLists(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('#net-list-container .list-item').forEach(el => {
+            el.style.display = el.dataset.net.toLowerCase().includes(q) ? 'flex' : 'none';
+        });
+    }
+
+    exportPNG() {
+        const link = document.createElement('a');
+        link.download = 'pcb_view.png';
+        link.href = this.canvas.toDataURL('image/png');
+        link.click();
+    }
+
+    saveSettings() {
+        const prefs = {
+            unit: this.currentUnit,
+            layers: Array.from(this.layerManager.layers.entries())
+        };
+        localStorage.setItem('gencad_viewer_prefs', JSON.stringify(prefs));
+    }
+
+    loadSettings() {
+        try {
+            const raw = localStorage.getItem('gencad_viewer_prefs');
+            if (raw) {
+                const prefs = JSON.parse(raw);
+                if (prefs.unit) {
+                    this.currentUnit = prefs.unit;
+                    document.getElementById('unit-selector').value = prefs.unit;
+                }
+            }
+        } catch (e) {}
+    }
+}
+
+// Initialize Application
+window.addEventListener('DOMContentLoaded', () => {
+    window.app = new GenCADApp();
+});
+</script>
 </body>
 </html>
