@@ -2,243 +2,197 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Address Finder & GPS Anti-Jam Navigation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Anti-Jam Navigation Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    #map { height: 100vh; width: 100%; background: #e5e3df; }
+    body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #map { height: 100vh; width: 100%; z-index: 1; }
     
     .control-card {
-      position: absolute; top: 15px; left: 15px; z-index: 1000;
-      background: #ffffff; padding: 16px; border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.2); width: 300px;
+      position: absolute; top: 12px; left: 12px; right: 12px; z-index: 1000;
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+      padding: 14px; border-radius: 14px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 360px; margin: 0 auto;
     }
-    .search-container { position: relative; }
-    .search-box { display: flex; gap: 6px; }
+    .search-box { display: flex; gap: 8px; }
     .search-box input {
-      flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; outline: none;
+      flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; outline: none;
     }
     .search-box button {
-      padding: 10px 14px; background: #007aff; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+      padding: 10px 16px; background: #007aff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
     }
     
-    .results-dropdown {
-      position: absolute; top: 46px; left: 0; right: 0; background: white;
-      border: 1px solid #ddd; border-radius: 8px; max-height: 180px; overflow-y: auto;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: none; z-index: 1001;
+    .dropdown {
+      background: #fff; border-radius: 8px; max-height: 160px; overflow-y: auto;
+      margin-top: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none;
     }
-    .result-item { padding: 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
-    .result-item:hover { background: #f5f5f5; }
+    .dropdown-item { padding: 10px; font-size: 13px; border-bottom: 1px solid #eee; cursor: pointer; }
+    .dropdown-item:hover { background: #f0f0f0; }
 
-    .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
-    .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+    .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+    .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
       position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #ccc; transition: .3s; border-radius: 22px;
+      background-color: #e9e9ea; transition: .3s; border-radius: 24px; border: 1px solid #d1d1d6;
     }
     .slider:before {
-      position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
-      background-color: white; transition: .3s; border-radius: 50%;
+      position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px;
+      background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
-    input:checked + .slider { background-color: #ff3b30; }
+    input:checked + .slider { background-color: #ff3b30; border-color: #ff3b30; }
     input:checked + .slider:before { transform: translateX(22px); }
 
-    #statusText { font-size: 12px; margin-top: 10px; color: #555; font-weight: 500; }
-
+    #status { font-size: 12px; margin-top: 8px; color: #666; font-weight: 500; }
     .go-btn {
-      width: 100%; margin-top: 8px; padding: 8px; background: #34c759; color: white;
-      border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;
+      width: 100%; margin-top: 8px; padding: 10px; background: #34c759; color: white;
+      border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px;
     }
   </style>
 </head>
 <body>
 
   <div class="control-card">
-    <div class="search-container">
-      <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Search address or place..." onkeypress="handleEnter(event)" />
-        <button onclick="searchAddress()">Search</button>
-      </div>
-      <div id="resultsDropdown" class="results-dropdown"></div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Search street, area, or place..." onkeypress="if(event.key==='Enter') searchLocation()" />
+      <button onclick="searchLocation()">Search</button>
     </div>
+    <div id="dropdown" class="dropdown"></div>
 
     <div class="toggle-container">
-      <span><strong>Anti-Jam Route</strong></span>
+      <span><strong>Anti-Jam Routing</strong></span>
       <label class="switch">
-        <input type="checkbox" id="antiJamToggle">
+        <input type="checkbox" id="antiJam">
         <span class="slider"></span>
       </label>
     </div>
-    <div id="statusText">Search for a place to begin.</div>
+    <div id="status">Search an address or tap anywhere on map</div>
   </div>
 
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Fast Canvas-rendered Map Initialization
-    const map = L.map('map', { preferCanvas: true }).setView([3.1390, 101.6869], 13);
+    const map = L.map('map', { zoomControl: false }).setView([3.1390, 101.6869], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
+      maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    let userMarker = null;
-    let targetMarker = null;
-    let routeLine = null;
-    let userCoords = null;
-    let targetCoords = null;
+    let userPos = null, targetPos = null;
+    let userMarker = null, targetMarker = null, routeLine = null;
 
-    function handleEnter(e) {
-      if (e.key === 'Enter') searchAddress();
-    }
-
-    // 1. Search Address & Place Finder (Nominatim API)
-    async function searchAddress() {
+    // Direct Address Search using OpenStreetMap Nominatim
+    async function searchLocation() {
       const query = document.getElementById('searchInput').value;
-      const dropdown = document.getElementById('resultsDropdown');
+      const dropdown = document.getElementById('dropdown');
+      const status = document.getElementById('status');
       if (!query) return;
 
-      document.getElementById('statusText').innerText = "Searching...";
+      status.innerText = "Searching address...";
       dropdown.style.display = "none";
       dropdown.innerHTML = "";
 
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
-
       try {
-        const response = await fetch(url);
-        const results = await response.json();
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+        const data = await res.json();
 
-        if (results.length === 0) {
-          document.getElementById('statusText').innerText = "No address found.";
+        if (data.length === 0) {
+          status.innerText = "Address not found. Try adding city/country name.";
           return;
         }
 
-        // Display search suggestion results
         dropdown.style.display = "block";
-        results.forEach(place => {
-          const item = document.createElement('div');
-          item.className = 'result-item';
-          item.innerText = place.display_name;
-          item.onclick = () => selectPlace(place.lat, place.lon, place.display_name);
-          dropdown.appendChild(item);
+        data.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'dropdown-item';
+          div.innerText = item.display_name;
+          div.onclick = () => selectAddress(item.lat, item.lon, item.display_name);
+          dropdown.appendChild(div);
         });
-        document.getElementById('statusText').innerText = "Select a result below.";
+        status.innerText = "Select address from list above:";
       } catch (err) {
-        document.getElementById('statusText').innerText = "Search error. Try again.";
+        status.innerText = "Connection error. Try again.";
       }
     }
 
-    // 2. Pin searched address on map with interactive popup
-    function selectPlace(lat, lon, displayName) {
-      document.getElementById('resultsDropdown').style.display = "none";
-      targetCoords = [parseFloat(lat), parseFloat(lon)];
+    // Drop Pin at Searched Address
+    function selectAddress(lat, lon, name) {
+      document.getElementById('dropdown').style.display = "none";
+      targetPos = [parseFloat(lat), parseFloat(lon)];
 
       if (targetMarker) map.removeLayer(targetMarker);
 
-      // Create destination Red Pin
-      targetMarker = L.marker(targetCoords).addTo(map);
-
-      const popupContent = `
-        <div style="text-align: center; max-width: 180px;">
-          <strong style="font-size: 12px;">${displayName.split(',')[0]}</strong><br>
-          <button class="go-btn" onclick="startNavigationToPin()">Go to this pin</button>
+      targetMarker = L.marker(targetPos).addTo(map);
+      targetMarker.bindPopup(`
+        <div style="text-align:center;">
+          <b style="font-size:13px;">${name.split(',')[0]}</b><br>
+          <button class="go-btn" onclick="getGPSAndNavigate()">Go to this pin</button>
         </div>
-      `;
+      `).openPopup();
 
-      targetMarker.bindPopup(popupContent).openPopup();
-      map.flyTo(targetCoords, 16, { animate: true, duration: 1 });
-      document.getElementById('statusText').innerText = "Click 'Go to this pin' in the popup.";
+      map.flyTo(targetPos, 16);
+      document.getElementById('status').innerText = "Click 'Go to this pin' in the popup";
     }
 
-    // 3. Request GPS Access & Calculate Route
-    function startNavigationToPin() {
-      if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser.");
-        return;
-      }
-
-      document.getElementById('statusText').innerText = "Requesting device GPS location...";
+    // Access Device Location & Calculate Route
+    function getGPSAndNavigate() {
+      const status = document.getElementById('status');
+      status.innerText = "Requesting device GPS location...";
 
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          userCoords = [position.coords.latitude, position.coords.longitude];
+        (pos) => {
+          userPos = [pos.coords.latitude, pos.coords.longitude];
 
-          // Show/Update User Location Marker (Blue Circle Marker)
           if (userMarker) map.removeLayer(userMarker);
-          userMarker = L.circleMarker(userCoords, {
-            color: '#ffffff',
-            fillColor: '#007aff',
-            fillOpacity: 1,
-            radius: 9,
-            weight: 3
-          }).addTo(map).bindPopup("Your Current Location");
+          userMarker = L.circleMarker(userPos, {
+            color: '#fff', fillColor: '#007aff', fillOpacity: 1, radius: 8, weight: 3
+          }).addTo(map);
 
-          document.getElementById('statusText').innerText = "Calculating best route...";
-          calculateRoute();
+          calculateBestRoute();
         },
-        (error) => {
-          alert("GPS Access Denied. Please enable location permissions in your browser.");
-          document.getElementById('statusText').innerText = "GPS Access Denied.";
-        },
+        () => { status.innerText = "GPS access denied by device."; },
         { enableHighAccuracy: true }
       );
     }
 
-    // 4. Calculate Route (Standard vs Anti-Jam)
-    async function calculateRoute() {
-      if (!userCoords || !targetCoords) return;
+    // Route Calculation (Standard vs Anti-Jam)
+    async function calculateBestRoute() {
+      if (!userPos || !targetPos) return;
 
-      const isAntiJam = document.getElementById('antiJamToggle').checked;
-      
-      // OSRM routing request (fetching alternative routes for anti-jam selection)
-      const url = `https://router.project-osrm.org/route/v1/driving/${userCoords[1]},${userCoords[0]};${targetCoords[1]},${targetCoords[0]}?overview=full&geometries=geojson&alternatives=true`;
+      const isAntiJam = document.getElementById('antiJam').checked;
+      const url = `https://router.project-osrm.org/route/v1/driving/${userPos[1]},${userPos[0]};${targetPos[1]},${targetPos[0]}?overview=full&geometries=geojson&alternatives=true`;
 
       try {
         const res = await fetch(url);
         const data = await res.json();
 
-        if (!data.routes || data.routes.length === 0) {
-          document.getElementById('statusText').innerText = "No route found.";
-          return;
-        }
+        if (!data.routes || data.routes.length === 0) return;
 
         if (routeLine) map.removeLayer(routeLine);
 
-        // Anti-Jam Logic: Picks alternative route or primary clear-flow path
-        let selectedRoute = data.routes[0];
-        if (isAntiJam && data.routes.length > 1) {
-          selectedRoute = data.routes[1]; // Uses alternate path bypassing congested arterial roads
-        }
+        // Select alternate route when anti-jam is toggled on
+        let chosenRoute = data.routes[0];
+        if (isAntiJam && data.routes.length > 1) chosenRoute = data.routes[1];
 
-        const coordinates = selectedRoute.geometry.coordinates.map(coord => [coord[1], coord[0]]);
-
-        routeLine = L.polyline(coordinates, {
+        const coords = chosenRoute.geometry.coordinates.map(c => [c[1], c[0]]);
+        routeLine = L.polyline(coords, {
           color: isAntiJam ? '#ff3b30' : '#007aff',
-          weight: 6,
-          opacity: 0.85
+          weight: 6, opacity: 0.85
         }).addTo(map);
 
-        map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+        map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
 
-        const distanceKm = (selectedRoute.distance / 1000).toFixed(1);
-        const timeMin = Math.round(selectedRoute.duration / 60);
-
-        document.getElementById('statusText').innerText = 
-          `${isAntiJam ? 'Anti-Jam Route' : 'Standard Route'}: ${distanceKm} km (${timeMin} mins)`;
-
+        const dist = (chosenRoute.distance / 1000).toFixed(1);
+        const mins = Math.round(chosenRoute.duration / 60);
+        document.getElementById('status').innerText = `${isAntiJam ? 'Anti-Jam' : 'Standard'} Route: ${dist} km (${mins} mins)`;
       } catch (err) {
-        document.getElementById('statusText').innerText = "Routing request failed.";
+        document.getElementById('status').innerText = "Failed to calculate route.";
       }
     }
 
-    // Toggle Anti-Jam Switch listener
-    document.getElementById('antiJamToggle').addEventListener('change', () => {
-      if (userCoords && targetCoords) calculateRoute();
-    });
+    document.getElementById('antiJam').addEventListener('change', calculateBestRoute);
   </script>
 </body>
 </html>
