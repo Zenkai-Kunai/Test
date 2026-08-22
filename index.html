@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Anti-Jam Navigation Map</title>
+  <title>Anti-Jam Live Navigation</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -15,50 +15,67 @@
       padding: 14px; border-radius: 14px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 360px; margin: 0 auto;
     }
-    .search-box { display: flex; gap: 8px; }
-    .search-box input {
-      flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; outline: none;
-    }
-    .search-box button {
-      padding: 10px 16px; background: #007aff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
-    }
     
-    .dropdown {
+    .auth-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .auth-btn { background: #4285F4; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
+    .saved-btn { background: #5856D6; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
+
+    .search-box { display: flex; gap: 8px; }
+    .search-box input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; outline: none; }
+    .search-box button { padding: 10px 14px; background: #007aff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    
+    .dropdown, .saved-modal {
       background: #fff; border-radius: 8px; max-height: 160px; overflow-y: auto;
       margin-top: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none;
     }
     .dropdown-item { padding: 10px; font-size: 13px; border-bottom: 1px solid #eee; cursor: pointer; }
     .dropdown-item:hover { background: #f0f0f0; }
 
-    .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
-    .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+    .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+    .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
     .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #e9e9ea; transition: .3s; border-radius: 24px; border: 1px solid #d1d1d6;
-    }
-    .slider:before {
-      position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px;
-      background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    input:checked + .slider { background-color: #ff3b30; border-color: #ff3b30; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e9e9ea; transition: .3s; border-radius: 22px; border: 1px solid #ccc; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; }
+    input:checked + .slider { background-color: #ff3b30; }
     input:checked + .slider:before { transform: translateX(22px); }
 
-    #status { font-size: 12px; margin-top: 8px; color: #666; font-weight: 500; }
-    .go-btn {
-      width: 100%; margin-top: 8px; padding: 10px; background: #34c759; color: white;
-      border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px;
+    #status { font-size: 12px; margin-top: 8px; color: #333; font-weight: 500; }
+    
+    .nav-overlay {
+      position: absolute; bottom: 20px; left: 12px; right: 12px; z-index: 1000;
+      background: #1c1c1e; color: white; padding: 16px; border-radius: 14px;
+      display: none; text-align: center; max-width: 360px; margin: 0 auto;
+    }
+    .nav-overlay h3 { margin: 0 0 6px 0; font-size: 18px; color: #30d158; }
+    .stop-nav-btn { background: #ff3b30; color: white; border: none; width: 100%; padding: 10px; margin-top: 10px; border-radius: 8px; font-weight: bold; }
+
+    .vehicle-icon {
+      width: 24px; height: 24px; background: #007aff; border: 3px solid #fff;
+      border-radius: 50%; box-shadow: 0 0 10px rgba(0,122,255,0.6);
+      transition: transform 0.3s ease;
     }
   </style>
+
+  <!-- Firebase Auth & Firestore SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
   <div class="control-card">
+    <div class="auth-row">
+      <button class="auth-btn" id="loginBtn" onclick="toggleAuth()">Sign in with Google</button>
+      <button class="saved-btn" id="savedBtn" onclick="toggleSavedPlaces()">Saved Places</button>
+    </div>
+
     <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search street, area, or place..." onkeypress="if(event.key==='Enter') searchLocation()" />
+      <input type="text" id="searchInput" placeholder="Search address or city..." onkeypress="if(event.key==='Enter') searchLocation()" />
       <button onclick="searchLocation()">Search</button>
     </div>
+    
     <div id="dropdown" class="dropdown"></div>
+    <div id="savedModal" class="saved-modal"></div>
 
     <div class="toggle-container">
       <span><strong>Anti-Jam Routing</strong></span>
@@ -67,97 +84,157 @@
         <span class="slider"></span>
       </label>
     </div>
-    <div id="status">Search an address or tap anywhere on map</div>
+    <div id="status">Search destination or tap on map</div>
+  </div>
+
+  <div id="navOverlay" class="nav-overlay">
+    <h3 id="navInstruction">Navigating...</h3>
+    <div id="navMetrics" style="font-size:13px; color:#aaa;">Speed: -- km/h | Dist: -- km</div>
+    <button class="stop-nav-btn" onclick="stopNavigation()">Exit Navigation</button>
   </div>
 
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map', { zoomControl: false }).setView([3.1390, 101.6869], 13);
+    // 1. FIREBASE CONFIGURATION (Paste your Firebase credentials here)
+    const firebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "SENDER_ID",
+      appId: "APP_ID"
+    };
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '© OpenStreetMap'
-    }).addTo(map);
+    let currentUser = null;
+    let db = null;
 
-    let userPos = null, targetPos = null;
-    let userMarker = null, targetMarker = null, routeLine = null;
-
-    // Direct Address Search using OpenStreetMap Nominatim
-    async function searchLocation() {
-      const query = document.getElementById('searchInput').value;
-      const dropdown = document.getElementById('dropdown');
-      const status = document.getElementById('status');
-      if (!query) return;
-
-      status.innerText = "Searching address...";
-      dropdown.style.display = "none";
-      dropdown.innerHTML = "";
-
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
-        const data = await res.json();
-
-        if (data.length === 0) {
-          status.innerText = "Address not found. Try adding city/country name.";
-          return;
+    // Initialize Firebase gracefully
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      
+      firebase.auth().onAuthStateChanged(user => {
+        currentUser = user;
+        const loginBtn = document.getElementById('loginBtn');
+        if (user) {
+          loginBtn.innerText = `Sign Out (${user.displayName ? user.displayName.split(' ')[0] : 'User'})`;
+        } else {
+          loginBtn.innerText = "Sign in with Google";
         }
+      });
+    } catch(e) {
+      console.warn("Firebase not configured. Using LocalStorage fallback.");
+    }
 
-        dropdown.style.display = "block";
-        data.forEach(item => {
-          const div = document.createElement('div');
-          div.className = 'dropdown-item';
-          div.innerText = item.display_name;
-          div.onclick = () => selectAddress(item.lat, item.lon, item.display_name);
-          dropdown.appendChild(div);
-        });
-        status.innerText = "Select address from list above:";
-      } catch (err) {
-        status.innerText = "Connection error. Try again.";
+    // Google Auth Toggle
+    function toggleAuth() {
+      if (!firebase.apps.length) return alert("Firebase Config Missing! Please add your Firebase Keys in the code.");
+      
+      if (currentUser) {
+        firebase.auth().signOut();
+      } else {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider);
       }
     }
 
-    // Drop Pin at Searched Address
+    // 2. MAP & NAVIGATION ENGINE
+    const map = L.map('map', { zoomControl: false }).setView([3.1390, 101.6869], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+
+    let userPos = null, targetPos = null, watchId = null;
+    let userMarker = null, targetMarker = null, routeLine = null;
+    let isNavigating = false;
+
+    // Search Address (OpenStreetMap)
+    async function searchLocation() {
+      const query = document.getElementById('searchInput').value;
+      const dropdown = document.getElementById('dropdown');
+      if (!query) return;
+
+      dropdown.style.display = "none";
+      dropdown.innerHTML = "";
+
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+      const data = await res.json();
+
+      if (data.length === 0) return alert("Address not found.");
+
+      dropdown.style.display = "block";
+      data.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'dropdown-item';
+        div.innerText = item.display_name;
+        div.onclick = () => selectAddress(item.lat, item.lon, item.display_name);
+        dropdown.appendChild(div);
+      });
+    }
+
+    // Select Place Pin
     function selectAddress(lat, lon, name) {
       document.getElementById('dropdown').style.display = "none";
       targetPos = [parseFloat(lat), parseFloat(lon)];
 
       if (targetMarker) map.removeLayer(targetMarker);
 
+      const placeTitle = name.split(',')[0];
       targetMarker = L.marker(targetPos).addTo(map);
       targetMarker.bindPopup(`
         <div style="text-align:center;">
-          <b style="font-size:13px;">${name.split(',')[0]}</b><br>
-          <button class="go-btn" onclick="getGPSAndNavigate()">Go to this pin</button>
+          <b>${placeTitle}</b><br>
+          <button style="width:100%; margin:6px 0; padding:6px; background:#34c759; color:#fff; border:none; border-radius:6px; font-weight:bold;" onclick="startNavigation()">Start Navigation</button>
+          <button style="width:100%; padding:6px; background:#5856D6; color:#fff; border:none; border-radius:6px; font-weight:bold;" onclick="savePlace('${placeTitle.replace(/'/g, "")}', ${lat}, ${lon})">⭐ Save Place</button>
         </div>
       `).openPopup();
 
-      map.flyTo(targetPos, 16);
-      document.getElementById('status').innerText = "Click 'Go to this pin' in the popup";
+      map.flyTo(targetPos, 15);
     }
 
-    // Access Device Location & Calculate Route
-    function getGPSAndNavigate() {
-      const status = document.getElementById('status');
-      status.innerText = "Requesting device GPS location...";
+    // Live Tracking & Camera Follow
+    function startNavigation() {
+      isNavigating = true;
+      document.getElementById('navOverlay').style.display = 'block';
 
-      navigator.geolocation.getCurrentPosition(
+      if (!navigator.geolocation) return alert("Geolocation not supported");
+
+      // Continuous Live GPS Watch
+      watchId = navigator.geolocation.watchPosition(
         (pos) => {
           userPos = [pos.coords.latitude, pos.coords.longitude];
+          const speed = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0;
 
-          if (userMarker) map.removeLayer(userMarker);
-          userMarker = L.circleMarker(userPos, {
-            color: '#fff', fillColor: '#007aff', fillOpacity: 1, radius: 8, weight: 3
-          }).addTo(map);
+          // Create Vehicle Icon Marker
+          if (!userMarker) {
+            const vehicleEl = L.divIcon({ className: 'vehicle-icon', iconSize: [24, 24] });
+            userMarker = L.marker(userPos, { icon: vehicleEl }).addTo(map);
+          } else {
+            userMarker.setLatLng(userPos);
+          }
 
+          // Dynamic Camera Follow Behind Vehicle
+          if (isNavigating) {
+            map.panTo(userPos, { animate: true, duration: 0.8 });
+            map.setZoom(17);
+          }
+
+          document.getElementById('navMetrics').innerText = `Speed: ${speed} km/h`;
           calculateBestRoute();
         },
-        () => { status.innerText = "GPS access denied by device."; },
-        { enableHighAccuracy: true }
+        (err) => alert("GPS Access Error"),
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
       );
     }
 
-    // Route Calculation (Standard vs Anti-Jam)
+    function stopNavigation() {
+      isNavigating = false;
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      document.getElementById('navOverlay').style.display = 'none';
+      if (routeLine) map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+    }
+
+    // Calculate Best Route (Standard vs Anti-Jam)
     async function calculateBestRoute() {
       if (!userPos || !targetPos) return;
 
@@ -167,29 +244,81 @@
       try {
         const res = await fetch(url);
         const data = await res.json();
-
         if (!data.routes || data.routes.length === 0) return;
 
         if (routeLine) map.removeLayer(routeLine);
 
-        // Select alternate route when anti-jam is toggled on
         let chosenRoute = data.routes[0];
         if (isAntiJam && data.routes.length > 1) chosenRoute = data.routes[1];
 
         const coords = chosenRoute.geometry.coordinates.map(c => [c[1], c[0]]);
         routeLine = L.polyline(coords, {
           color: isAntiJam ? '#ff3b30' : '#007aff',
-          weight: 6, opacity: 0.85
+          weight: 7, opacity: 0.85
         }).addTo(map);
-
-        map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
 
         const dist = (chosenRoute.distance / 1000).toFixed(1);
         const mins = Math.round(chosenRoute.duration / 60);
-        document.getElementById('status').innerText = `${isAntiJam ? 'Anti-Jam' : 'Standard'} Route: ${dist} km (${mins} mins)`;
-      } catch (err) {
-        document.getElementById('status').innerText = "Failed to calculate route.";
+
+        document.getElementById('status').innerText = `${isAntiJam ? 'Anti-Jam' : 'Standard'}: ${dist} km (${mins} mins)`;
+        if (isNavigating) {
+          document.getElementById('navInstruction').innerText = `${mins} mins (${dist} km)`;
+        }
+      } catch (err) {}
+    }
+
+    // 3. PRIVATE SAVED PLACES PER USER
+    async function savePlace(name, lat, lon) {
+      if (!currentUser && db) return alert("Please Sign In with Google to save places privately to your account!");
+
+      const placeData = { name, lat: parseFloat(lat), lon: parseFloat(lon), createdAt: new Date() };
+
+      if (currentUser && db) {
+        // Private Firestore collection bound to User's unique Google UID
+        await db.collection('users').doc(currentUser.uid).collection('savedPlaces').add(placeData);
+      } else {
+        // Fallback Local Storage
+        let localData = JSON.parse(localStorage.getItem('my_saved_places') || '[]');
+        localData.push(placeData);
+        localStorage.setItem('my_saved_places', JSON.stringify(localData));
       }
+      alert(`Saved "${name}"!`);
+    }
+
+    async function toggleSavedPlaces() {
+      const modal = document.getElementById('savedModal');
+      if (modal.style.display === "block") {
+        modal.style.display = "none";
+        return;
+      }
+
+      modal.innerHTML = "";
+      modal.style.display = "block";
+
+      let places = [];
+      if (currentUser && db) {
+        const snap = await db.collection('users').doc(currentUser.uid).collection('savedPlaces').get();
+        snap.forEach(doc => places.push(doc.data()));
+      } else {
+        places = JSON.parse(localStorage.getItem('my_saved_places') || '[]');
+      }
+
+      if (places.length === 0) {
+        modal.innerHTML = `<div class="dropdown-item">No saved places found.</div>`;
+        return;
+      }
+
+      places.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'dropdown-item';
+        div.innerText = `📍 ${p.name}`;
+        div.onclick = () => {
+          modal.style.display = "none";
+          selectAddress(p.lat, p.lon, p.name);
+        };
+        dropdown.appendChild(div);
+        modal.appendChild(div);
+      });
     }
 
     document.getElementById('antiJam').addEventListener('change', calculateBestRoute);
