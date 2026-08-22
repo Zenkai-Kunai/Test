@@ -16,11 +16,13 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 360px; margin: 0 auto;
     }
     
-    .auth-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .auth-btn { background: #4285F4; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
-    .saved-btn { background: #5856D6; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
+    .auth-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .user-profile { display: flex; align-items: center; justify-content: space-between; background: #f2f2f7; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+    .user-profile img { width: 24px; height: 24px; border-radius: 50%; }
+    
+    .saved-btn { background: #5856D6; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; width: 100%; }
 
-    .search-box { display: flex; gap: 8px; }
+    .search-box { display: flex; gap: 8px; margin-top: 8px; }
     .search-box input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; outline: none; }
     .search-box button { padding: 10px 14px; background: #007aff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     
@@ -55,17 +57,32 @@
     }
   </style>
 
-  <!-- Firebase Auth & Firestore SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
   <div class="control-card" id="controlCard">
-    <div class="auth-row">
-      <button class="auth-btn" id="loginBtn" onclick="toggleAuth()">Sign in with Google</button>
-      <button class="saved-btn" id="savedBtn" onclick="toggleSavedPlaces()">Saved Places</button>
+    <div class="auth-container">
+      <!-- Native Google Sign-In Button Container -->
+      <div id="g_id_onload"
+        data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+        data-callback="handleCredentialResponse"
+        data-auto_prompt="false">
+      </div>
+      <div id="googleBtnContainer">
+        <div class="g_id_signin" data-type="standard" data-size="medium" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
+      </div>
+
+      <div id="userInfo" class="user-profile" style="display:none;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <img id="userImg" src="" />
+          <span id="userName" style="font-weight:600;"></span>
+        </div>
+        <button onclick="signOut()" style="border:none; background:none; color:#ff3b30; font-weight:bold; cursor:pointer;">Sign Out</button>
+      </div>
+
+      <button class="saved-btn" onclick="toggleSavedPlaces()">⭐ View My Saved Places</button>
     </div>
 
     <div class="search-box">
@@ -96,44 +113,42 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // 1. FIREBASE CONFIGURATION
-    const firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "SENDER_ID",
-      appId: "APP_ID"
-    };
-
     let currentUser = null;
-    let db = null;
 
-    try {
-      firebase.initializeApp(firebaseConfig);
-      db = firebase.firestore();
-      firebase.auth().onAuthStateChanged(user => {
-        currentUser = user;
-        const loginBtn = document.getElementById('loginBtn');
-        if (user) {
-          loginBtn.innerText = `Sign Out (${user.displayName ? user.displayName.split(' ')[0] : 'User'})`;
-        } else {
-          loginBtn.innerText = "Sign in with Google";
-        }
-      });
-    } catch(e) {}
-
-    function toggleAuth() {
-      if (!firebase.apps.length) return alert("Please configure Firebase keys in code.");
-      if (currentUser) {
-        firebase.auth().signOut();
-      } else {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        firebase.auth().signInWithPopup(provider);
-      }
+    // Decode Google JWT Token securely on client side
+    function parseJwt(token) {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('0' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      return JSON.parse(jsonPayload);
     }
 
-    // 2. MAP & NAVIGATION ENGINE
+    // Google Sign-In Callback
+    function handleCredentialResponse(response) {
+      const payload = parseJwt(response.credential);
+      currentUser = {
+        id: payload.sub, // Unique Google Account ID
+        name: payload.name,
+        email: payload.email,
+        picture: payload.picture
+      };
+
+      document.getElementById('googleBtnContainer').style.display = 'none';
+      document.getElementById('userInfo').style.display = 'flex';
+      document.getElementById('userName').innerText = currentUser.name.split(' ')[0];
+      document.getElementById('userImg').src = currentUser.picture;
+      
+      alert(`Signed in as ${currentUser.name}`);
+    }
+
+    function signOut() {
+      currentUser = null;
+      document.getElementById('googleBtnContainer').style.display = 'block';
+      document.getElementById('userInfo').style.display = 'none';
+      document.getElementById('savedModal').style.display = 'none';
+    }
+
+    // MAP & NAVIGATION
     const map = L.map('map', { zoomControl: false }).setView([3.1390, 101.6869], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
 
@@ -141,7 +156,6 @@
     let userMarker = null, targetMarker = null, routeLine = null;
     let isNavigating = false;
 
-    // Search Address
     async function searchLocation() {
       const query = document.getElementById('searchInput').value;
       const dropdown = document.getElementById('dropdown');
@@ -184,7 +198,6 @@
       map.flyTo(targetPos, 15);
     }
 
-    // Live Tracking & Locked Camera
     function startNavigation() {
       if (!navigator.geolocation) return alert("Geolocation not supported");
 
@@ -197,7 +210,6 @@
           userPos = [pos.coords.latitude, pos.coords.longitude];
           const speed = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0;
 
-          // Vehicle Icon Marker
           if (!userMarker) {
             const vehicleEl = L.divIcon({ className: 'vehicle-icon', iconSize: [22, 22] });
             userMarker = L.marker(userPos, { icon: vehicleEl }).addTo(map);
@@ -205,9 +217,7 @@
             userMarker.setLatLng(userPos);
           }
 
-          // STRICT CAMERA LOCK: Keeps camera locked on vehicle location
           map.setView(userPos, 18, { animate: true });
-
           document.getElementById('navMetrics').innerText = `Speed: ${speed} km/h`;
           calculateBestRoute();
         },
@@ -224,7 +234,6 @@
       if (routeLine) map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
     }
 
-    // Calculate Best Route
     async function calculateBestRoute() {
       if (!userPos || !targetPos) return;
 
@@ -255,29 +264,27 @@
         if (isNavigating) {
           document.getElementById('navInstruction').innerText = `${mins} mins (${dist} km)`;
         } else {
-          // ONLY zoom out to show full route preview when NOT navigating!
           map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
         }
       } catch (err) {}
     }
 
-    // 3. PRIVATE SAVED PLACES PER USER
-    async function savePlace(name, lat, lon) {
-      if (!currentUser && db) return alert("Please Sign In with Google to save places privately to your account!");
+    // SAVED PLACES (PRIVATE PER ACCOUNT)
+    function savePlace(name, lat, lon) {
+      if (!currentUser) return alert("Please sign in with Google first so saved places stay private to your account!");
 
-      const placeData = { name, lat: parseFloat(lat), lon: parseFloat(lon), createdAt: new Date() };
+      const storageKey = `saved_places_${currentUser.id}`;
+      let places = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      
+      places.push({ name, lat: parseFloat(lat), lon: parseFloat(lon) });
+      localStorage.setItem(storageKey, JSON.stringify(places));
 
-      if (currentUser && db) {
-        await db.collection('users').doc(currentUser.uid).collection('savedPlaces').add(placeData);
-      } else {
-        let localData = JSON.parse(localStorage.getItem('my_saved_places') || '[]');
-        localData.push(placeData);
-        localStorage.setItem('my_saved_places', JSON.stringify(localData));
-      }
-      alert(`Saved "${name}"!`);
+      alert(`Saved "${name}" to your private account!`);
     }
 
-    async function toggleSavedPlaces() {
+    function toggleSavedPlaces() {
+      if (!currentUser) return alert("Please sign in with Google to view your saved places!");
+
       const modal = document.getElementById('savedModal');
       if (modal.style.display === "block") {
         modal.style.display = "none";
@@ -287,16 +294,11 @@
       modal.innerHTML = "";
       modal.style.display = "block";
 
-      let places = [];
-      if (currentUser && db) {
-        const snap = await db.collection('users').doc(currentUser.uid).collection('savedPlaces').get();
-        snap.forEach(doc => places.push(doc.data()));
-      } else {
-        places = JSON.parse(localStorage.getItem('my_saved_places') || '[]');
-      }
+      const storageKey = `saved_places_${currentUser.id}`;
+      const places = JSON.parse(localStorage.getItem(storageKey) || '[]');
 
       if (places.length === 0) {
-        modal.innerHTML = `<div class="dropdown-item">No saved places found.</div>`;
+        modal.innerHTML = `<div class="dropdown-item">No saved places found for your account.</div>`;
         return;
       }
 
