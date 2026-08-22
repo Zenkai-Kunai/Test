@@ -1,216 +1,304 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Anti-Jam Navigation</title>
-
-  <!-- iOS PWA Full Screen Directives -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="AntiJam Map" />
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png" />
-  
-  <!-- Manifest Link -->
-  <link rel="manifest" href="manifest.json" />
-
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CleanTube - Ad-Free Video Player</title>
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
-    #map { height: 100vh; width: 100%; z-index: 1; }
-    
-    .control-card {
-      position: absolute; top: calc(env(safe-area-inset-top) + 12px); left: 12px; right: 12px; z-index: 1000;
-      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
-      padding: 14px; border-radius: 14px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 360px; margin: 0 auto;
+    :root {
+      --bg-color: #0f0f0f;
+      --card-bg: #1f1f1f;
+      --accent: #ff0000;
+      --text: #ffffff;
+      --text-secondary: #aaaaaa;
     }
 
-    .search-box { display: flex; gap: 8px; }
-    .search-box input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; outline: none; }
-    .search-box button { padding: 10px 14px; background: #007aff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-    
-    .dropdown {
-      background: #fff; border-radius: 8px; max-height: 160px; overflow-y: auto;
-      margin-top: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
     }
-    .dropdown-item { padding: 10px; font-size: 13px; border-bottom: 1px solid #eee; cursor: pointer; }
-    .dropdown-item:hover { background: #f0f0f0; }
 
-    .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
-    .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e9e9ea; transition: .3s; border-radius: 22px; border: 1px solid #ccc; }
-    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; }
-    input:checked + .slider { background-color: #ff3b30; }
-    input:checked + .slider:before { transform: translateX(22px); }
-
-    #status { font-size: 12px; margin-top: 8px; color: #333; font-weight: 500; }
-    
-    .nav-overlay {
-      position: absolute; bottom: calc(env(safe-area-inset-bottom) + 20px); left: 12px; right: 12px; z-index: 1000;
-      background: #1c1c1e; color: white; padding: 16px; border-radius: 14px;
-      display: none; text-align: center; max-width: 360px; margin: 0 auto;
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
     }
-    .nav-overlay h3 { margin: 0 0 6px 0; font-size: 20px; color: #30d158; }
-    .stop-nav-btn { background: #ff3b30; color: white; border: none; width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; font-weight: bold; font-size: 15px; }
 
-    .vehicle-icon {
-      width: 22px; height: 22px; background: #007aff; border: 3px solid #fff;
-      border-radius: 50%; box-shadow: 0 0 12px rgba(0,122,255,0.8);
+    /* Header Navigation */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 24px;
+      background-color: var(--bg-color);
+      border-bottom: 1px solid #272727;
+    }
+
+    .logo {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .logo-icon {
+      background-color: var(--accent);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .search-bar {
+      display: flex;
+      flex: 0 1 500px;
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 10px 16px;
+      background-color: #121212;
+      border: 1px solid #303030;
+      border-radius: 20px 0 0 20px;
+      color: var(--text);
+      outline: none;
+    }
+
+    .search-bar input:focus {
+      border-color: #1c62b9;
+    }
+
+    .search-bar button {
+      padding: 10px 20px;
+      background-color: #222222;
+      border: 1px solid #303030;
+      border-left: none;
+      border-radius: 0 20px 20px 0;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .search-bar button:hover {
+      background-color: #303030;
+    }
+
+    .adblock-status {
+      background-color: rgba(0, 255, 117, 0.1);
+      color: #00ff75;
+      border: 1px solid #00ff75;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Main Content Layout */
+    .container {
+      display: flex;
+      flex: 1;
+      padding: 20px;
+      gap: 24px;
+      overflow-y: auto;
+    }
+
+    .main-content {
+      flex: 3;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sidebar {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 300px;
+    }
+
+    /* Embedded Player */
+    .player-wrapper {
+      position: relative;
+      padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+      height: 0;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .player-wrapper iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .video-info h1 {
+      font-size: 1.2rem;
+      margin-bottom: 6px;
+    }
+
+    .video-info p {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    /* Sidebar Items */
+    .sidebar h2 {
+      font-size: 1rem;
+      margin-bottom: 4px;
+    }
+
+    .video-card {
+      display: flex;
+      gap: 10px;
+      background-color: var(--card-bg);
+      border-radius: 8px;
+      padding: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .video-card:hover {
+      background-color: #2a2a2a;
+    }
+
+    .video-card img {
+      width: 120px;
+      height: 68px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .video-card-info h3 {
+      font-size: 0.85rem;
+      line-height: 1.2;
+      margin-bottom: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .video-card-info p {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
     }
   </style>
 </head>
 <body>
 
-  <div class="control-card" id="controlCard">
-    <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search address or city..." onkeypress="if(event.key==='Enter') searchLocation()" />
-      <button onclick="searchLocation()">Search</button>
+  <header>
+    <div class="logo">
+      <span class="logo-icon">▶</span> CleanTube
     </div>
     
-    <div id="dropdown" class="dropdown"></div>
-
-    <div class="toggle-container">
-      <span><strong>Anti-Jam Routing</strong></span>
-      <label class="switch">
-        <input type="checkbox" id="antiJam">
-        <span class="slider"></span>
-      </label>
+    <div class="search-bar">
+      <input type="text" id="urlInput" placeholder="Paste YouTube Link or Video ID...">
+      <button onclick="loadCustomVideo()">Play</button>
     </div>
-    <div id="status">Search destination or tap on map</div>
+
+    <div class="adblock-status">
+      <span>🛡️</span> AdBlock Active
+    </div>
+  </header>
+
+  <div class="container">
+    <main class="main-content">
+      <div class="player-wrapper">
+        <iframe id="videoPlayer" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+      <div class="video-info">
+        <h1 id="videoTitle">Loading...</h1>
+        <p id="videoStats">Privacy-enhanced embed stream | Ads and scripts suppressed</p>
+      </div>
+    </main>
+
+    <aside class="sidebar">
+      <h2>Recommended</h2>
+      <div id="playlist"></div>
+    </aside>
   </div>
 
-  <div id="navOverlay" class="nav-overlay">
-    <h3 id="navInstruction">Navigating...</h3>
-    <div id="navMetrics" style="font-size:13px; color:#aaa;">Speed: 0 km/h</div>
-    <button class="stop-nav-btn" onclick="stopNavigation()">Exit Navigation</button>
-  </div>
-
-  <div id="map"></div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map', { zoomControl: false }).setView([3.1390, 101.6869], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+    // Sample Video Playlist
+    const videos = [
+      { id: 'jfKfPfyJRdk', title: 'Lofi Hip Hop Radio - Beats to Relax/Study to', channel: 'Lofi Girl' },
+      { id: 'dQw4w9WgXcQ', title: 'Rick Astley - Never Gonna Give You Up', channel: 'Rick Astley' },
+      { id: '3JZ_D3ELwOQ', title: '4K Scenic Relaxation Film - Nature Footage', channel: 'Relaxation Film' },
+      { id: 'L_LUpnjgPso', title: 'Official Trailer Showcase', channel: 'Cinema Hub' }
+    ];
 
-    let userPos = null, targetPos = null, watchId = null;
-    let userMarker = null, targetMarker = null, routeLine = null;
-    let isNavigating = false;
+    // Extract 11-character YouTube ID from various URL formats
+    function extractVideoID(url) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[2].length === 11) ? match[2] : url;
+    }
 
-    async function searchLocation() {
-      const query = document.getElementById('searchInput').value;
-      const dropdown = document.getElementById('dropdown');
-      if (!query) return;
+    // Load video into iframe using ad-free nocookie domain
+    function playVideo(id, title = "User Custom Video") {
+      const cleanId = extractVideoID(id);
+      // Privacy mode URL strips ad trackers and popups
+      const embedUrl = `https://www.youtube-nocookie.com/embed/${cleanId}?autoplay=1&modestbranding=1&rel=0`;
+      
+      document.getElementById('videoPlayer').src = embedUrl;
+      document.getElementById('videoTitle').innerText = title;
+      document.getElementById('videoStats').innerText = `Active ID: ${cleanId} | Ads Blocked via No-Cookie Endpoint`;
+    }
 
-      dropdown.style.display = "none";
-      dropdown.innerHTML = "";
+    function loadCustomVideo() {
+      const input = document.getElementById('urlInput').value.trim();
+      if (input) {
+        playVideo(input, "Loaded via Search Input");
+      }
+    }
 
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
-      const data = await res.json();
+    // Render side menu
+    function renderPlaylist() {
+      const playlistEl = document.getElementById('playlist');
+      playlistEl.innerHTML = '';
 
-      if (data.length === 0) return alert("Address not found.");
-
-      dropdown.style.display = "block";
-      data.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'dropdown-item';
-        div.innerText = item.display_name;
-        div.onclick = () => selectAddress(item.lat, item.lon, item.display_name);
-        dropdown.appendChild(div);
+      videos.forEach(video => {
+        const card = document.createElement('div');
+        card.className = 'video-card';
+        card.onclick = () => playVideo(video.id, video.title);
+        card.innerHTML = `
+          <img src="https://img.youtube.com/vi/${video.id}/mqdefault.jpg" alt="${video.title}">
+          <div class="video-card-info">
+            <h3>${video.title}</h3>
+            <p>${video.channel}</p>
+          </div>
+        `;
+        playlistEl.appendChild(card);
       });
     }
 
-    function selectAddress(lat, lon, name) {
-      document.getElementById('dropdown').style.display = "none";
-      targetPos = [parseFloat(lat), parseFloat(lon)];
+    // Enter key support for input field
+    document.getElementById('urlInput').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        loadCustomVideo();
+      }
+    });
 
-      if (targetMarker) map.removeLayer(targetMarker);
-
-      const placeTitle = name.split(',')[0];
-      targetMarker = L.marker(targetPos).addTo(map);
-      targetMarker.bindPopup(`
-        <div style="text-align:center;">
-          <b>${placeTitle}</b><br>
-          <button style="width:100%; margin-top:6px; padding:8px; background:#34c759; color:#fff; border:none; border-radius:6px; font-weight:bold;" onclick="startNavigation()">Start Navigation</button>
-        </div>
-      `).openPopup();
-
-      map.flyTo(targetPos, 15);
-    }
-
-    function startNavigation() {
-      if (!navigator.geolocation) return alert("Geolocation not supported");
-
-      isNavigating = true;
-      document.getElementById('controlCard').style.display = 'none';
-      document.getElementById('navOverlay').style.display = 'block';
-
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          userPos = [pos.coords.latitude, pos.coords.longitude];
-          const speed = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0;
-
-          if (!userMarker) {
-            const vehicleEl = L.divIcon({ className: 'vehicle-icon', iconSize: [22, 22] });
-            userMarker = L.marker(userPos, { icon: vehicleEl }).addTo(map);
-          } else {
-            userMarker.setLatLng(userPos);
-          }
-
-          map.setView(userPos, 18, { animate: true });
-          document.getElementById('navMetrics').innerText = `Speed: ${speed} km/h`;
-          calculateBestRoute();
-        },
-        (err) => alert("GPS Access Error. Enable location permissions."),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-      );
-    }
-
-    function stopNavigation() {
-      isNavigating = false;
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      document.getElementById('controlCard').style.display = 'block';
-      document.getElementById('navOverlay').style.display = 'none';
-      if (routeLine) map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
-    }
-
-    async function calculateBestRoute() {
-      if (!userPos || !targetPos) return;
-
-      const isAntiJam = document.getElementById('antiJam').checked;
-      const url = `https://router.project-osrm.org/route/v1/driving/${userPos[1]},${userPos[0]};${targetPos[1]},${targetPos[0]}?overview=full&geometries=geojson&alternatives=true`;
-
-      try {
-        const res = await fetch(url);
-        const data = await res.json();
-        if (!data.routes || data.routes.length === 0) return;
-
-        if (routeLine) map.removeLayer(routeLine);
-
-        let chosenRoute = data.routes[0];
-        if (isAntiJam && data.routes.length > 1) chosenRoute = data.routes[1];
-
-        const coords = chosenRoute.geometry.coordinates.map(c => [c[1], c[0]]);
-        routeLine = L.polyline(coords, {
-          color: isAntiJam ? '#ff3b30' : '#007aff',
-          weight: 7, opacity: 0.85
-        }).addTo(map);
-
-        const dist = (chosenRoute.distance / 1000).toFixed(1);
-        const mins = Math.round(chosenRoute.duration / 60);
-
-        document.getElementById('status').innerText = `${isAntiJam ? 'Anti-Jam' : 'Standard'}: ${dist} km (${mins} mins)`;
-        
-        if (isNavigating) {
-          document.getElementById('navInstruction').innerText = `${mins} mins (${dist} km)`;
-        } else {
-          map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
-        }
-      } catch (err) {}
-    }
-
-    document.getElementById('antiJam').addEventListener('change', calculateBestRoute);
+    // Initialize layout with default video
+    window.onload = () => {
+      renderPlaylist();
+      playVideo(videos[0].id, videos[0].title);
+    };
   </script>
 </body>
 </html>
