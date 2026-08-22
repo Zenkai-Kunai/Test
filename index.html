@@ -46,13 +46,12 @@
       background: #1c1c1e; color: white; padding: 16px; border-radius: 14px;
       display: none; text-align: center; max-width: 360px; margin: 0 auto;
     }
-    .nav-overlay h3 { margin: 0 0 6px 0; font-size: 18px; color: #30d158; }
-    .stop-nav-btn { background: #ff3b30; color: white; border: none; width: 100%; padding: 10px; margin-top: 10px; border-radius: 8px; font-weight: bold; }
+    .nav-overlay h3 { margin: 0 0 6px 0; font-size: 20px; color: #30d158; }
+    .stop-nav-btn { background: #ff3b30; color: white; border: none; width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; font-weight: bold; font-size: 15px; }
 
     .vehicle-icon {
-      width: 24px; height: 24px; background: #007aff; border: 3px solid #fff;
-      border-radius: 50%; box-shadow: 0 0 10px rgba(0,122,255,0.6);
-      transition: transform 0.3s ease;
+      width: 22px; height: 22px; background: #007aff; border: 3px solid #fff;
+      border-radius: 50%; box-shadow: 0 0 12px rgba(0,122,255,0.8);
     }
   </style>
 
@@ -63,7 +62,7 @@
 </head>
 <body>
 
-  <div class="control-card">
+  <div class="control-card" id="controlCard">
     <div class="auth-row">
       <button class="auth-btn" id="loginBtn" onclick="toggleAuth()">Sign in with Google</button>
       <button class="saved-btn" id="savedBtn" onclick="toggleSavedPlaces()">Saved Places</button>
@@ -89,7 +88,7 @@
 
   <div id="navOverlay" class="nav-overlay">
     <h3 id="navInstruction">Navigating...</h3>
-    <div id="navMetrics" style="font-size:13px; color:#aaa;">Speed: -- km/h | Dist: -- km</div>
+    <div id="navMetrics" style="font-size:13px; color:#aaa;">Speed: 0 km/h</div>
     <button class="stop-nav-btn" onclick="stopNavigation()">Exit Navigation</button>
   </div>
 
@@ -97,7 +96,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // 1. FIREBASE CONFIGURATION (Paste your Firebase credentials here)
+    // 1. FIREBASE CONFIGURATION
     const firebaseConfig = {
       apiKey: "YOUR_FIREBASE_API_KEY",
       authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -110,11 +109,9 @@
     let currentUser = null;
     let db = null;
 
-    // Initialize Firebase gracefully
     try {
       firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
-      
       firebase.auth().onAuthStateChanged(user => {
         currentUser = user;
         const loginBtn = document.getElementById('loginBtn');
@@ -124,14 +121,10 @@
           loginBtn.innerText = "Sign in with Google";
         }
       });
-    } catch(e) {
-      console.warn("Firebase not configured. Using LocalStorage fallback.");
-    }
+    } catch(e) {}
 
-    // Google Auth Toggle
     function toggleAuth() {
-      if (!firebase.apps.length) return alert("Firebase Config Missing! Please add your Firebase Keys in the code.");
-      
+      if (!firebase.apps.length) return alert("Please configure Firebase keys in code.");
       if (currentUser) {
         firebase.auth().signOut();
       } else {
@@ -148,7 +141,7 @@
     let userMarker = null, targetMarker = null, routeLine = null;
     let isNavigating = false;
 
-    // Search Address (OpenStreetMap)
+    // Search Address
     async function searchLocation() {
       const query = document.getElementById('searchInput').value;
       const dropdown = document.getElementById('dropdown');
@@ -172,7 +165,6 @@
       });
     }
 
-    // Select Place Pin
     function selectAddress(lat, lon, name) {
       document.getElementById('dropdown').style.display = "none";
       targetPos = [parseFloat(lat), parseFloat(lon)];
@@ -184,7 +176,7 @@
       targetMarker.bindPopup(`
         <div style="text-align:center;">
           <b>${placeTitle}</b><br>
-          <button style="width:100%; margin:6px 0; padding:6px; background:#34c759; color:#fff; border:none; border-radius:6px; font-weight:bold;" onclick="startNavigation()">Start Navigation</button>
+          <button style="width:100%; margin:6px 0; padding:8px; background:#34c759; color:#fff; border:none; border-radius:6px; font-weight:bold;" onclick="startNavigation()">Start Navigation</button>
           <button style="width:100%; padding:6px; background:#5856D6; color:#fff; border:none; border-radius:6px; font-weight:bold;" onclick="savePlace('${placeTitle.replace(/'/g, "")}', ${lat}, ${lon})">⭐ Save Place</button>
         </div>
       `).openPopup();
@@ -192,49 +184,47 @@
       map.flyTo(targetPos, 15);
     }
 
-    // Live Tracking & Camera Follow
+    // Live Tracking & Locked Camera
     function startNavigation() {
-      isNavigating = true;
-      document.getElementById('navOverlay').style.display = 'block';
-
       if (!navigator.geolocation) return alert("Geolocation not supported");
 
-      // Continuous Live GPS Watch
+      isNavigating = true;
+      document.getElementById('controlCard').style.display = 'none';
+      document.getElementById('navOverlay').style.display = 'block';
+
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           userPos = [pos.coords.latitude, pos.coords.longitude];
           const speed = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0;
 
-          // Create Vehicle Icon Marker
+          // Vehicle Icon Marker
           if (!userMarker) {
-            const vehicleEl = L.divIcon({ className: 'vehicle-icon', iconSize: [24, 24] });
+            const vehicleEl = L.divIcon({ className: 'vehicle-icon', iconSize: [22, 22] });
             userMarker = L.marker(userPos, { icon: vehicleEl }).addTo(map);
           } else {
             userMarker.setLatLng(userPos);
           }
 
-          // Dynamic Camera Follow Behind Vehicle
-          if (isNavigating) {
-            map.panTo(userPos, { animate: true, duration: 0.8 });
-            map.setZoom(17);
-          }
+          // STRICT CAMERA LOCK: Keeps camera locked on vehicle location
+          map.setView(userPos, 18, { animate: true });
 
           document.getElementById('navMetrics').innerText = `Speed: ${speed} km/h`;
           calculateBestRoute();
         },
-        (err) => alert("GPS Access Error"),
-        { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
+        (err) => alert("GPS Access Error. Enable location permissions."),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
       );
     }
 
     function stopNavigation() {
       isNavigating = false;
       if (watchId) navigator.geolocation.clearWatch(watchId);
+      document.getElementById('controlCard').style.display = 'block';
       document.getElementById('navOverlay').style.display = 'none';
       if (routeLine) map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
     }
 
-    // Calculate Best Route (Standard vs Anti-Jam)
+    // Calculate Best Route
     async function calculateBestRoute() {
       if (!userPos || !targetPos) return;
 
@@ -261,8 +251,12 @@
         const mins = Math.round(chosenRoute.duration / 60);
 
         document.getElementById('status').innerText = `${isAntiJam ? 'Anti-Jam' : 'Standard'}: ${dist} km (${mins} mins)`;
+        
         if (isNavigating) {
           document.getElementById('navInstruction').innerText = `${mins} mins (${dist} km)`;
+        } else {
+          // ONLY zoom out to show full route preview when NOT navigating!
+          map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
         }
       } catch (err) {}
     }
@@ -274,10 +268,8 @@
       const placeData = { name, lat: parseFloat(lat), lon: parseFloat(lon), createdAt: new Date() };
 
       if (currentUser && db) {
-        // Private Firestore collection bound to User's unique Google UID
         await db.collection('users').doc(currentUser.uid).collection('savedPlaces').add(placeData);
       } else {
-        // Fallback Local Storage
         let localData = JSON.parse(localStorage.getItem('my_saved_places') || '[]');
         localData.push(placeData);
         localStorage.setItem('my_saved_places', JSON.stringify(localData));
@@ -316,7 +308,6 @@
           modal.style.display = "none";
           selectAddress(p.lat, p.lon, p.name);
         };
-        dropdown.appendChild(div);
         modal.appendChild(div);
       });
     }
