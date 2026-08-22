@@ -5,31 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Anti-Jam Navigation</title>
 
-  <!-- iOS Standalone Web App Mode -->
+  <!-- iOS PWA Full Screen Directives -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Anti-Jam Map" />
+  <meta name="apple-mobile-web-app-title" content="AntiJam Map" />
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png" />
-
-  <!-- Standalone App Launcher Manifest -->
-  <link rel="manifest" href='data:application/json,{"name":"Anti-Jam Navigation","short_name":"AntiJam","start_url":"https://zenkai-kunai.github.io/","display":"standalone","background_color":"#ffffff","theme_color":"#007aff","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/854/854878.png","sizes":"512x512","type":"image/png"}]}'>
-
-  <!-- Prevent iOS Standalone Mode from opening Safari -->
-  <script>
-    if (("standalone" in window.navigator) && window.navigator.standalone) {
-      document.addEventListener('click', function(e) {
-        var node = e.target;
-        while (node.nodeName !== "A" && node.nodeName !== "HTML") {
-          node = node.parentNode;
-        }
-        if ('href' in node && node.href.indexOf('http') !== -1) {
-          e.preventDefault();
-          document.location.href = node.href;
-        }
-      }, false);
-    }
-  </script>
+  
+  <!-- Manifest Link -->
+  <link rel="manifest" href="manifest.json" />
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
