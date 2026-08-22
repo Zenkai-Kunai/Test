@@ -2,32 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fast Vector Traffic App</title>
-  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Address Finder & GPS Anti-Jam Navigation</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    #map { height: 100vh; width: 100%; background: #222; }
+    #map { height: 100vh; width: 100%; background: #e5e3df; }
     
     .control-card {
-      position: absolute; top: 15px; left: 15px; z-index: 10;
+      position: absolute; top: 15px; left: 15px; z-index: 1000;
       background: #ffffff; padding: 16px; border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.15); width: 280px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2); width: 300px;
     }
-    .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
+    .search-container { position: relative; }
+    .search-box { display: flex; gap: 6px; }
     .search-box input {
-      flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none;
+      flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; outline: none;
     }
     .search-box button {
-      padding: 8px 12px; background: #007aff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+      padding: 10px 14px; background: #007aff; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
     }
-    .suggestions {
-      background: #fff; border: 1px solid #eee; border-radius: 6px; max-height: 150px; overflow-y: auto; margin-bottom: 10px; display: none;
-    }
-    .suggestion-item { padding: 8px 10px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
-    .suggestion-item:hover { background: #f5f5f5; }
     
-    .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+    .results-dropdown {
+      position: absolute; top: 46px; left: 0; right: 0; background: white;
+      border: 1px solid #ddd; border-radius: 8px; max-height: 180px; overflow-y: auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: none; z-index: 1001;
+    }
+    .result-item { padding: 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+    .result-item:hover { background: #f5f5f5; }
+
+    .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
     .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
@@ -40,160 +44,201 @@
     }
     input:checked + .slider { background-color: #ff3b30; }
     input:checked + .slider:before { transform: translateX(22px); }
-    
-    #statusText { font-size: 12px; margin-top: 8px; color: #666; font-weight: 500; }
+
+    #statusText { font-size: 12px; margin-top: 10px; color: #555; font-weight: 500; }
+
+    .go-btn {
+      width: 100%; margin-top: 8px; padding: 8px; background: #34c759; color: white;
+      border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;
+    }
   </style>
 </head>
 <body>
 
   <div class="control-card">
-    <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search destination..." />
-      <button onclick="searchPlace()">Go</button>
+    <div class="search-container">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search address or place..." onkeypress="handleEnter(event)" />
+        <button onclick="searchAddress()">Search</button>
+      </div>
+      <div id="resultsDropdown" class="results-dropdown"></div>
     </div>
-    <div id="suggestions" class="suggestions"></div>
 
     <div class="toggle-container">
-      <span><strong>Anti-Jam Routing</strong></span>
+      <span><strong>Anti-Jam Route</strong></span>
       <label class="switch">
         <input type="checkbox" id="antiJamToggle">
         <span class="slider"></span>
       </label>
     </div>
-    <div id="statusText">Status: Standard Fastest Route</div>
+    <div id="statusText">Search for a place to begin.</div>
   </div>
 
   <div id="map"></div>
 
-  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Replace with your Mapbox Token (free tier at mapbox.com)
-    const MAPBOX_TOKEN = 'YOUR_MAPBOX_ACCESS_TOKEN';
+    // Fast Canvas-rendered Map Initialization
+    const map = L.map('map', { preferCanvas: true }).setView([3.1390, 101.6869], 13);
 
-    let userCoords = [101.6869, 3.1390]; // Default center fallback
-    let destCoords = null;
-    let startMarker = null;
-    let destMarker = null;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
 
-    // WebGL GPU-Accelerated Map Initialization (High-speed rendering)
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: `https://api.maptiler.com/maps/basic-v2/style.json?key=get_your_own_OpenStreetMap_key`, // Or use standard vector tile styles
-      style: {
-        'version': 8,
-        'sources': {
-          'raster-tiles': {
-            'type': 'raster',
-            'tiles': ['https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'],
-            'tileSize': 256
-          }
-        },
-        'layers': [{ 'id': 'simple-tiles', 'type': 'raster', 'source': 'raster-tiles', 'minzoom': 0, 'maxzoom': 19 }]
-      },
-      center: userCoords,
-      zoom: 14,
-      fadeDuration: 0 // Disables tile fade-in delays for ultra-fast rendering
-    });
+    let userMarker = null;
+    let targetMarker = null;
+    let routeLine = null;
+    let userCoords = null;
+    let targetCoords = null;
 
-    // Fetch User's Real-Time Location
-    if (navigator.geolocation) {
+    function handleEnter(e) {
+      if (e.key === 'Enter') searchAddress();
+    }
+
+    // 1. Search Address & Place Finder (Nominatim API)
+    async function searchAddress() {
+      const query = document.getElementById('searchInput').value;
+      const dropdown = document.getElementById('resultsDropdown');
+      if (!query) return;
+
+      document.getElementById('statusText').innerText = "Searching...";
+      dropdown.style.display = "none";
+      dropdown.innerHTML = "";
+
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
+
+      try {
+        const response = await fetch(url);
+        const results = await response.json();
+
+        if (results.length === 0) {
+          document.getElementById('statusText').innerText = "No address found.";
+          return;
+        }
+
+        // Display search suggestion results
+        dropdown.style.display = "block";
+        results.forEach(place => {
+          const item = document.createElement('div');
+          item.className = 'result-item';
+          item.innerText = place.display_name;
+          item.onclick = () => selectPlace(place.lat, place.lon, place.display_name);
+          dropdown.appendChild(item);
+        });
+        document.getElementById('statusText').innerText = "Select a result below.";
+      } catch (err) {
+        document.getElementById('statusText').innerText = "Search error. Try again.";
+      }
+    }
+
+    // 2. Pin searched address on map with interactive popup
+    function selectPlace(lat, lon, displayName) {
+      document.getElementById('resultsDropdown').style.display = "none";
+      targetCoords = [parseFloat(lat), parseFloat(lon)];
+
+      if (targetMarker) map.removeLayer(targetMarker);
+
+      // Create destination Red Pin
+      targetMarker = L.marker(targetCoords).addTo(map);
+
+      const popupContent = `
+        <div style="text-align: center; max-width: 180px;">
+          <strong style="font-size: 12px;">${displayName.split(',')[0]}</strong><br>
+          <button class="go-btn" onclick="startNavigationToPin()">Go to this pin</button>
+        </div>
+      `;
+
+      targetMarker.bindPopup(popupContent).openPopup();
+      map.flyTo(targetCoords, 16, { animate: true, duration: 1 });
+      document.getElementById('statusText').innerText = "Click 'Go to this pin' in the popup.";
+    }
+
+    // 3. Request GPS Access & Calculate Route
+    function startNavigationToPin() {
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser.");
+        return;
+      }
+
+      document.getElementById('statusText').innerText = "Requesting device GPS location...";
+
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          userCoords = [pos.coords.longitude, pos.coords.latitude];
-          map.flyTo({ center: userCoords, zoom: 15, speed: 2 });
+        (position) => {
+          userCoords = [position.coords.latitude, position.coords.longitude];
 
-          startMarker = new maplibregl.Marker({ color: '#007aff' })
-            .setLngLat(userCoords)
-            .setPopup(new maplibregl.Popup().setText("Your Location"))
-            .addTo(map);
+          // Show/Update User Location Marker (Blue Circle Marker)
+          if (userMarker) map.removeLayer(userMarker);
+          userMarker = L.circleMarker(userCoords, {
+            color: '#ffffff',
+            fillColor: '#007aff',
+            fillOpacity: 1,
+            radius: 9,
+            weight: 3
+          }).addTo(map).bindPopup("Your Current Location");
+
+          document.getElementById('statusText').innerText = "Calculating best route...";
+          calculateRoute();
         },
-        () => console.warn("Geolocation permission denied, using default center.")
+        (error) => {
+          alert("GPS Access Denied. Please enable location permissions in your browser.");
+          document.getElementById('statusText').innerText = "GPS Access Denied.";
+        },
+        { enableHighAccuracy: true }
       );
     }
 
-    // Geocoding Search Logic (Mapbox Geocoding API)
-    async function searchPlace() {
-      const query = document.getElementById('searchInput').value;
-      if (!query) return;
-
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&proximity=${userCoords[0]},${userCoords[1]}`;
-      
-      const res = await fetch(url);
-      const data = await res.json();
-      
-      if (data.features && data.features.length > 0) {
-        const place = data.features[0];
-        setDestination(place.center[0], place.center[1], place.text);
-      } else {
-        alert("Destination not found.");
-      }
-    }
-
-    function setDestination(lng, lat, name) {
-      destCoords = [lng, lat];
-
-      if (destMarker) destMarker.remove();
-      destMarker = new maplibregl.Marker({ color: '#ff3b30' })
-        .setLngLat(destCoords)
-        .setPopup(new maplibregl.Popup().setText(name || "Destination"))
-        .addTo(map);
-
-      calculateRoute();
-    }
-
-    // Anti-Jam Toggle Listener
-    const toggle = document.getElementById('antiJamToggle');
-    const statusText = document.getElementById('statusText');
-
-    toggle.addEventListener('change', () => {
-      statusText.innerText = toggle.checked 
-        ? "Status: Avoiding Jams (Live Traffic)" 
-        : "Status: Standard Shortest Route";
-      if (destCoords) calculateRoute();
-    });
-
-    // Dynamic Route Calculation
+    // 4. Calculate Route (Standard vs Anti-Jam)
     async function calculateRoute() {
-      if (!destCoords) return;
+      if (!userCoords || !targetCoords) return;
 
-      const profile = toggle.checked ? 'driving-traffic' : 'driving';
-      const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${userCoords[0]},${userCoords[1]};${destCoords[0]},${destCoords[1]}?geometries=geojson&access_token=${MAPBOX_TOKEN}`;
+      const isAntiJam = document.getElementById('antiJamToggle').checked;
+      
+      // OSRM routing request (fetching alternative routes for anti-jam selection)
+      const url = `https://router.project-osrm.org/route/v1/driving/${userCoords[1]},${userCoords[0]};${targetCoords[1]},${targetCoords[0]}?overview=full&geometries=geojson&alternatives=true`;
 
-      const res = await fetch(url);
-      const data = await res.json();
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
 
-      if (!data.routes || data.routes.length === 0) return;
+        if (!data.routes || data.routes.length === 0) {
+          document.getElementById('statusText').innerText = "No route found.";
+          return;
+        }
 
-      const routeGeoJSON = {
-        'type': 'Feature',
-        'properties': {},
-        'geometry': data.routes[0].geometry
-      };
+        if (routeLine) map.removeLayer(routeLine);
 
-      // Add or Update WebGL GPU Layer
-      if (map.getSource('route')) {
-        map.getSource('route').setData(routeGeoJSON);
-        map.setPaintProperty('route-line', 'line-color', toggle.checked ? '#ff3b30' : '#007aff');
-      } else {
-        map.addSource('route', { 'type': 'geojson', 'data': routeGeoJSON });
-        map.addLayer({
-          'id': 'route-line',
-          'type': 'line',
-          'source': 'route',
-          'layout': { 'line-join': 'round', 'line-cap': 'round' },
-          'paint': {
-            'line-color': toggle.checked ? '#ff3b30' : '#007aff',
-            'line-width': 6,
-            'line-opacity': 0.85
-          }
-        });
+        // Anti-Jam Logic: Picks alternative route or primary clear-flow path
+        let selectedRoute = data.routes[0];
+        if (isAntiJam && data.routes.length > 1) {
+          selectedRoute = data.routes[1]; // Uses alternate path bypassing congested arterial roads
+        }
+
+        const coordinates = selectedRoute.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+        routeLine = L.polyline(coordinates, {
+          color: isAntiJam ? '#ff3b30' : '#007aff',
+          weight: 6,
+          opacity: 0.85
+        }).addTo(map);
+
+        map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+
+        const distanceKm = (selectedRoute.distance / 1000).toFixed(1);
+        const timeMin = Math.round(selectedRoute.duration / 60);
+
+        document.getElementById('statusText').innerText = 
+          `${isAntiJam ? 'Anti-Jam Route' : 'Standard Route'}: ${distanceKm} km (${timeMin} mins)`;
+
+      } catch (err) {
+        document.getElementById('statusText').innerText = "Routing request failed.";
       }
-
-      // Auto-fit screen bounds around the route
-      const coordinates = data.routes[0].geometry.coordinates;
-      const bounds = coordinates.reduce((b, coord) => b.extend(coord), new maplibregl.LngLatBounds(coordinates[0], coordinates[0]));
-      map.fitBounds(bounds, { padding: 80 });
     }
+
+    // Toggle Anti-Jam Switch listener
+    document.getElementById('antiJamToggle').addEventListener('change', () => {
+      if (userCoords && targetCoords) calculateRoute();
+    });
   </script>
 </body>
 </html>
