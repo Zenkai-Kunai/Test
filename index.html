@@ -2,31 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Anti-Jam Live Navigation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Anti-Jam Navigation</title>
+
+  <!-- iOS Full Screen / Standalone App Settings -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Anti-Jam Map" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png" />
+
+  <!-- Android & Modern Browser Web App Manifest (Embedded Data URI) -->
+  <link rel="manifest" href='data:application/json,{"name":"Anti-Jam Navigation","short_name":"AntiJam Map","start_url":".","display":"standalone","background_color":"#ffffff","theme_color":"#007aff","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/854/854878.png","sizes":"512x512","type":"image/png"}]}'>
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
     #map { height: 100vh; width: 100%; z-index: 1; }
     
     .control-card {
-      position: absolute; top: 12px; left: 12px; right: 12px; z-index: 1000;
+      position: absolute; top: calc(env(safe-area-inset-top) + 12px); left: 12px; right: 12px; z-index: 1000;
       background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
       padding: 14px; border-radius: 14px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 360px; margin: 0 auto;
     }
-    
-    .auth-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-    .user-profile { display: flex; align-items: center; justify-content: space-between; background: #f2f2f7; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
-    .user-profile img { width: 24px; height: 24px; border-radius: 50%; }
-    
-    .saved-btn { background: #5856D6; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; width: 100%; }
 
-    .search-box { display: flex; gap: 8px; margin-top: 8px; }
+    .search-box { display: flex; gap: 8px; }
     .search-box input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; outline: none; }
     .search-box button { padding: 10px 14px; background: #007aff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     
-    .dropdown, .saved-modal {
+    .dropdown {
       background: #fff; border-radius: 8px; max-height: 160px; overflow-y: auto;
       margin-top: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none;
     }
@@ -44,7 +48,7 @@
     #status { font-size: 12px; margin-top: 8px; color: #333; font-weight: 500; }
     
     .nav-overlay {
-      position: absolute; bottom: 20px; left: 12px; right: 12px; z-index: 1000;
+      position: absolute; bottom: calc(env(safe-area-inset-bottom) + 20px); left: 12px; right: 12px; z-index: 1000;
       background: #1c1c1e; color: white; padding: 16px; border-radius: 14px;
       display: none; text-align: center; max-width: 360px; margin: 0 auto;
     }
@@ -56,42 +60,16 @@
       border-radius: 50%; box-shadow: 0 0 12px rgba(0,122,255,0.8);
     }
   </style>
-
-  <!-- Google Identity Services SDK -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
   <div class="control-card" id="controlCard">
-    <div class="auth-container">
-      <!-- Native Google Sign-In Button Container -->
-      <div id="g_id_onload"
-        data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-        data-callback="handleCredentialResponse"
-        data-auto_prompt="false">
-      </div>
-      <div id="googleBtnContainer">
-        <div class="g_id_signin" data-type="standard" data-size="medium" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
-      </div>
-
-      <div id="userInfo" class="user-profile" style="display:none;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <img id="userImg" src="" />
-          <span id="userName" style="font-weight:600;"></span>
-        </div>
-        <button onclick="signOut()" style="border:none; background:none; color:#ff3b30; font-weight:bold; cursor:pointer;">Sign Out</button>
-      </div>
-
-      <button class="saved-btn" onclick="toggleSavedPlaces()">⭐ View My Saved Places</button>
-    </div>
-
     <div class="search-box">
       <input type="text" id="searchInput" placeholder="Search address or city..." onkeypress="if(event.key==='Enter') searchLocation()" />
       <button onclick="searchLocation()">Search</button>
     </div>
     
     <div id="dropdown" class="dropdown"></div>
-    <div id="savedModal" class="saved-modal"></div>
 
     <div class="toggle-container">
       <span><strong>Anti-Jam Routing</strong></span>
@@ -113,42 +91,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    let currentUser = null;
-
-    // Decode Google JWT Token securely on client side
-    function parseJwt(token) {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('0' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-      return JSON.parse(jsonPayload);
-    }
-
-    // Google Sign-In Callback
-    function handleCredentialResponse(response) {
-      const payload = parseJwt(response.credential);
-      currentUser = {
-        id: payload.sub, // Unique Google Account ID
-        name: payload.name,
-        email: payload.email,
-        picture: payload.picture
-      };
-
-      document.getElementById('googleBtnContainer').style.display = 'none';
-      document.getElementById('userInfo').style.display = 'flex';
-      document.getElementById('userName').innerText = currentUser.name.split(' ')[0];
-      document.getElementById('userImg').src = currentUser.picture;
-      
-      alert(`Signed in as ${currentUser.name}`);
-    }
-
-    function signOut() {
-      currentUser = null;
-      document.getElementById('googleBtnContainer').style.display = 'block';
-      document.getElementById('userInfo').style.display = 'none';
-      document.getElementById('savedModal').style.display = 'none';
-    }
-
-    // MAP & NAVIGATION
     const map = L.map('map', { zoomControl: false }).setView([3.1390, 101.6869], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
 
@@ -190,8 +132,7 @@
       targetMarker.bindPopup(`
         <div style="text-align:center;">
           <b>${placeTitle}</b><br>
-          <button style="width:100%; margin:6px 0; padding:8px; background:#34c759; color:#fff; border:none; border-radius:6px; font-weight:bold;" onclick="startNavigation()">Start Navigation</button>
-          <button style="width:100%; padding:6px; background:#5856D6; color:#fff; border:none; border-radius:6px; font-weight:bold;" onclick="savePlace('${placeTitle.replace(/'/g, "")}', ${lat}, ${lon})">⭐ Save Place</button>
+          <button style="width:100%; margin-top:6px; padding:8px; background:#34c759; color:#fff; border:none; border-radius:6px; font-weight:bold;" onclick="startNavigation()">Start Navigation</button>
         </div>
       `).openPopup();
 
@@ -267,51 +208,6 @@
           map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
         }
       } catch (err) {}
-    }
-
-    // SAVED PLACES (PRIVATE PER ACCOUNT)
-    function savePlace(name, lat, lon) {
-      if (!currentUser) return alert("Please sign in with Google first so saved places stay private to your account!");
-
-      const storageKey = `saved_places_${currentUser.id}`;
-      let places = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      
-      places.push({ name, lat: parseFloat(lat), lon: parseFloat(lon) });
-      localStorage.setItem(storageKey, JSON.stringify(places));
-
-      alert(`Saved "${name}" to your private account!`);
-    }
-
-    function toggleSavedPlaces() {
-      if (!currentUser) return alert("Please sign in with Google to view your saved places!");
-
-      const modal = document.getElementById('savedModal');
-      if (modal.style.display === "block") {
-        modal.style.display = "none";
-        return;
-      }
-
-      modal.innerHTML = "";
-      modal.style.display = "block";
-
-      const storageKey = `saved_places_${currentUser.id}`;
-      const places = JSON.parse(localStorage.getItem(storageKey) || '[]');
-
-      if (places.length === 0) {
-        modal.innerHTML = `<div class="dropdown-item">No saved places found for your account.</div>`;
-        return;
-      }
-
-      places.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'dropdown-item';
-        div.innerText = `📍 ${p.name}`;
-        div.onclick = () => {
-          modal.style.display = "none";
-          selectAddress(p.lat, p.lon, p.name);
-        };
-        modal.appendChild(div);
-      });
     }
 
     document.getElementById('antiJam').addEventListener('change', calculateBestRoute);
